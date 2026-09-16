@@ -1,4 +1,5 @@
 import AppNav from "@/components/AppNav";
+import Link from "next/link";
 import { opportunities } from "@/lib/opportunities";
 
 export default function Saved() {
@@ -8,10 +9,12 @@ export default function Saved() {
       <div className="mx-auto max-w-[1140px] px-6 py-12">
         <h1 className="text-[28px] font-bold text-primary-navy">Saved & applications</h1>
         <div className="mt-6 flex gap-8 border-b border-neutral-border">
-          <span className="border-b-2 border-primary-navy pb-3 text-sm font-bold text-primary-navy">
+          <Link href="/saved" className="border-b-2 border-primary-navy pb-3 text-sm font-bold text-primary-navy">
             Saved ({opportunities.length})
-          </span>
-          <span className="pb-3 text-sm text-neutral-slate">Applications (2)</span>
+          </Link>
+          <Link href="/applications" className="pb-3 text-sm font-bold text-neutral-slate hover:text-primary-navy">
+            Applications
+          </Link>
         </div>
 
         <div className="mt-6 flex flex-col gap-4">

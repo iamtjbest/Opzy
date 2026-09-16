@@ -47,8 +47,18 @@ export default function Settings() {
 
           <h2 className="text-base font-bold text-primary-navy">Account</h2>
           <p className="mt-3 text-[13px] text-neutral-slate">you@example.com</p>
-          <button className="mt-4 rounded-lg border border-neutral-border px-5 py-2.5 text-[13px] font-bold text-neutral-ink hover:border-primary-navy">
-            Log out
+          <div className="mt-4 flex items-center gap-4">
+            <button className="rounded-lg border border-neutral-border px-5 py-2.5 text-[13px] font-bold text-neutral-ink hover:border-primary-navy transition-colors">
+              Log out
+            </button>
+          </div>
+          
+          <div className="my-6 h-px w-full bg-neutral-border" />
+          
+          <h2 className="text-base font-bold text-danger-red">Danger Zone</h2>
+          <p className="mt-2 text-sm text-neutral-slate">Once you delete your account, there is no going back. Please be certain.</p>
+          <button className="mt-4 rounded-lg border border-danger-red text-danger-red px-5 py-2.5 text-[13px] font-bold hover:bg-danger-red hover:text-white transition-colors cursor-pointer">
+            Delete Account
           </button>
         </div>
       </div>

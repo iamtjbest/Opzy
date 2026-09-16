@@ -4,7 +4,7 @@ import Logo from "./Logo";
 const links = [
   { href: "/feed", label: "Feed" },
   { href: "/saved", label: "Saved" },
-  { href: "/saved", label: "Applications" },
+  { href: "/applications", label: "Applications" },
 ];
 
 export default function AppNav({ active }: { active: string }) {

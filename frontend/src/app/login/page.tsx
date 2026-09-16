@@ -18,7 +18,7 @@ export default function LogIn() {
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <span className="text-[13px] font-bold text-neutral-ink">Password</span>
-              <Link href="#" className="text-[13px] text-primary-blue">
+              <Link href="/forgot-password" className="text-[13px] text-primary-blue">
                 Forgot password?
               </Link>
             </div>
