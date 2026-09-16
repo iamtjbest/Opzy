@@ -27,7 +27,7 @@ export default function Button({
   onClick?: () => void;
   type?: "button" | "submit";
 }) {
-  const classes = `inline-flex items-center justify-center rounded-lg px-5 py-3 text-sm font-bold tracking-[0.2px] transition-colors cursor-pointer ${variants[variant]} ${className}`;
+  const classes = `inline-flex items-center justify-center rounded-lg px-5 py-3 text-sm font-bold tracking-[0.2px] transition-all active:scale-95 cursor-pointer ${variants[variant]} ${className}`;
   if (href) {
     return (
       <Link href={href} className={classes}>

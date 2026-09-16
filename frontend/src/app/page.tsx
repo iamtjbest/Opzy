@@ -1,8 +1,12 @@
+"use client";
+
+import { useState } from "react";
 import Logo from "@/components/Logo";
 import Button from "@/components/Button";
 import Tag from "@/components/Tag";
 import Link from "next/link";
 import HeroIllustration from "@/components/HeroIllustration";
+import EarlyAccessModal from "@/components/EarlyAccessModal";
 
 const steps = [
   {
@@ -55,16 +59,25 @@ const faqs = [
 ];
 
 export default function Home() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   return (
     <div className="flex w-full flex-col bg-white">
+      <EarlyAccessModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
       {/* Nav */}
       <div className="fixed top-0 left-1/2 z-10 flex h-20 w-full max-w-[1440px] -translate-x-1/2 items-center justify-between bg-neutral-mist/65 px-6 lg:px-16 backdrop-blur-sm">
         <Logo />
         <div className="flex items-center gap-6">
+          <Link href="/about" className="hidden md:block text-sm font-bold text-neutral-slate hover:text-primary-navy">
+            About
+          </Link>
+          <Link href="/pricing" className="hidden md:block text-sm font-bold text-neutral-slate hover:text-primary-navy">
+            Pricing
+          </Link>
           <Link href="/login" className="text-sm font-bold text-primary-navy hover:text-primary-blue">
             Log in
           </Link>
-          <Button href="/login">Get Early Access</Button>
+          <Button onClick={() => setIsModalOpen(true)}>Get Early Access</Button>
         </div>
       </div>
 
@@ -122,7 +135,7 @@ export default function Home() {
           boards, something you actually qualify for is easy to miss. Or you find it three days
           before the deadline and aren&rsquo;t sure if you&rsquo;re even eligible.
         </p>
-        <Button variant="outline-dark" href="/signup">Stop checking ten places. Start with one.</Button>
+        <Button variant="outline-dark" onClick={() => setIsModalOpen(true)}>Stop checking ten places. Start with one.</Button>
       </section>
 
       {/* How it works */}
@@ -243,7 +256,7 @@ export default function Home() {
           We&rsquo;re opening early access to a small group first. Sign up and we&rsquo;ll notify
           you as soon as it&rsquo;s ready.
         </p>
-        <Button variant="on-dark" href="/login">Join early access</Button>
+        <Button variant="on-dark" onClick={() => setIsModalOpen(true)}>Join early access</Button>
       </section>
 
       {/* Footer */}
