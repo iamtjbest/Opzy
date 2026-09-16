@@ -1,17 +1,12 @@
 import Logo from "@/components/Logo";
 
 const sections = [
-  ["1. Acceptance of Terms", "Placeholder. Describe what using Opzy means the person agrees to."],
-  ["2. Eligibility", "Placeholder. Minimum age, account requirements, accuracy of profile information."],
-  ["3. Use of the Service", "Placeholder. What the service does, acceptable use, prohibited behavior."],
-  [
-    "4. Opportunity Listings Disclaimer",
-    "Placeholder. Opzy surfaces third-party opportunities; it does not guarantee outcomes, eligibility decisions, or that a listing remains open. Verify details directly with the listing source before applying.",
-  ],
-  ["5. User Accounts", "Placeholder. Account creation, responsibility for credentials, termination conditions."],
-  ["6. Limitation of Liability", "Placeholder. Standard liability limitations, reviewed by counsel before publishing."],
-  ["7. Changes to These Terms", "Placeholder. How and when terms may be updated, and how users are notified."],
-  ["8. Contact", "Placeholder. Support/legal contact details."],
+  ["1. What you're agreeing to", "By creating an account, you agree to use Opzy as intended, to discover opportunities you may be eligible for, not to misuse the service or the data of other users."],
+  ["2. Who can use this", "Opzy is currently open to invited early-access testers. You're responsible for the accuracy of the profile information you provide, since it's what we use to match you."],
+  ["3. About the opportunities we show", "Opzy surfaces opportunities from other organizations. We check what we can, but we don't control application outcomes, eligibility decisions, or whether a listing stays open. Always confirm details with the source before applying."],
+  ["4. Your account", "Keep your login details to yourself. You can ask us to delete your account and data at any time during this early-access phase."],
+  ["5. Changes", "Since this is an early, actively-changing product, terms may be updated as it develops. We'll let testers know directly if anything meaningfully changes."],
+  ["6. Contact", "Questions, reach out directly at iamtjbest15@gmail.com."]
 ];
 
 export default function Terms() {
@@ -23,8 +18,7 @@ export default function Terms() {
       <div className="mx-auto max-w-[900px] px-6 py-16">
         <h1 className="text-[32px] font-bold text-primary-navy">Terms & Conditions</h1>
         <p className="mt-3 text-sm text-neutral-slate">
-          Last updated: [date]. Replace placeholder sections below with reviewed legal copy
-          before publishing.
+          Last updated: September 2026. This is an early-access product, still being tested with a small group. Terms will be reviewed properly before any public launch.
         </p>
         <div className="mt-8 flex flex-col gap-8">
           {sections.map(([h, b]) => (
