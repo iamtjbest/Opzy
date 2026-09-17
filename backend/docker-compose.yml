@@ -1,0 +1,31 @@
+# Local Postgres for development, so the backend doesn't depend on Supabase access.
+# Runs the same docs/schema.sql and docs/seed.sql that were applied to the live project,
+# so what you develop against matches production.
+#
+# Port 55432 on the host, because a system Postgres may already hold 5432.
+# Credentials here are local-only throwaways — never reuse them anywhere real.
+
+services:
+  db:
+    image: postgres:16
+    container_name: opzy-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: opzy
+      POSTGRES_PASSWORD: opzy_local_dev
+      POSTGRES_DB: opzy
+    ports:
+      - "55432:5432"
+    volumes:
+      - opzy_pgdata:/var/lib/postgresql/data
+      # Run once, on first startup of an empty data volume.
+      - ../docs/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ../docs/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U opzy -d opzy"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  opzy_pgdata:
