@@ -1,0 +1,141 @@
+import uuid
+
+from httpx import AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.security import create_access_token
+from app.models import User
+
+PASSWORD = "correct horse battery"
+
+
+async def signup(client: AsyncClient, email: str = "ada@example.com", password: str = PASSWORD):
+    return await client.post("/auth/signup", json={"email": email, "password": password})
+
+
+async def login(client: AsyncClient, email: str = "ada@example.com", password: str = PASSWORD):
+    return await client.post("/auth/login", data={"username": email, "password": password})
+
+
+# --- signup ---------------------------------------------------------------------------
+
+
+async def test_signup_creates_user_and_logs_in(client: AsyncClient, db_session: AsyncSession):
+    resp = await signup(client)
+
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["token_type"] == "bearer"
+    assert body["access_token"]
+    assert body["user"]["email"] == "ada@example.com"
+    assert body["user"]["notification_cadence"] == "daily"
+    assert body["user"]["notification_channel"] == "email"
+
+    me = await client.get(
+        "/auth/me", headers={"Authorization": f"Bearer {body['access_token']}"}
+    )
+    assert me.status_code == 200
+    assert me.json()["id"] == body["user"]["id"]
+
+    user = await db_session.scalar(select(User).where(User.email == "ada@example.com"))
+    assert user is not None
+
+
+async def test_signup_never_stores_or_returns_plaintext(
+    client: AsyncClient, db_session: AsyncSession
+):
+    resp = await signup(client)
+
+    assert PASSWORD not in resp.text
+    assert "password" not in resp.json()["user"]
+    user = await db_session.scalar(select(User).where(User.email == "ada@example.com"))
+    assert user.password_hash != PASSWORD
+    assert PASSWORD not in user.password_hash
+
+
+async def test_signup_normalizes_email(client: AsyncClient):
+    resp = await signup(client, email="  Ada@Example.COM ")
+    assert resp.status_code == 201
+    assert resp.json()["user"]["email"] == "ada@example.com"
+
+
+async def test_signup_duplicate_email_conflicts(client: AsyncClient):
+    assert (await signup(client)).status_code == 201
+
+    resp = await signup(client, email="ADA@example.com")
+    assert resp.status_code == 409
+
+
+async def test_signup_rejects_invalid_email(client: AsyncClient):
+    assert (await signup(client, email="not-an-email")).status_code == 422
+
+
+async def test_signup_rejects_short_password(client: AsyncClient):
+    assert (await signup(client, password="short")).status_code == 422
+
+
+async def test_signup_rejects_overlong_password(client: AsyncClient):
+    assert (await signup(client, password="x" * 129)).status_code == 422
+
+
+# --- login ----------------------------------------------------------------------------
+
+
+async def test_login_returns_working_token(client: AsyncClient):
+    await signup(client)
+
+    resp = await login(client)
+    assert resp.status_code == 200
+    token = resp.json()["access_token"]
+    assert resp.json()["token_type"] == "bearer"
+
+    me = await client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert me.status_code == 200
+    assert me.json()["email"] == "ada@example.com"
+
+
+async def test_login_is_case_insensitive_on_email(client: AsyncClient):
+    await signup(client)
+    assert (await login(client, email=" ADA@example.com")).status_code == 200
+
+
+async def test_login_wrong_password_and_unknown_email_look_identical(client: AsyncClient):
+    await signup(client)
+
+    wrong_password = await login(client, password="not the password")
+    unknown_email = await login(client, email="nobody@example.com")
+
+    assert wrong_password.status_code == unknown_email.status_code == 401
+    assert wrong_password.json() == unknown_email.json()
+
+
+async def test_login_rejects_overlong_password(client: AsyncClient):
+    await signup(client)
+    assert (await login(client, password="x" * 10_000)).status_code == 401
+
+
+# --- protected route ------------------------------------------------------------------
+
+
+async def test_me_requires_token(client: AsyncClient):
+    resp = await client.get("/auth/me")
+    assert resp.status_code == 401
+    assert resp.headers["www-authenticate"] == "Bearer"
+
+
+async def test_me_rejects_garbage_token(client: AsyncClient):
+    resp = await client.get("/auth/me", headers={"Authorization": "Bearer not.a.jwt"})
+    assert resp.status_code == 401
+
+
+async def test_me_rejects_token_for_missing_user(client: AsyncClient):
+    token = create_access_token(uuid.uuid4())
+    resp = await client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert resp.status_code == 401
+
+
+async def test_me_never_returns_password_hash(client: AsyncClient):
+    token = (await signup(client)).json()["access_token"]
+    resp = await client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert "password" not in resp.text

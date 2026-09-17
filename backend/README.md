@@ -15,6 +15,7 @@ source .venv/bin/activate
 pip install -r requirements-dev.txt   # app + test deps
 
 cp .env.example .env
+# then set JWT_SECRET in .env — the app won't start without it
 ```
 
 ### Database
@@ -23,6 +24,7 @@ Development runs against a local Postgres in Docker, so you don't need Supabase 
 
 ```bash
 docker compose up -d
+alembic upgrade head
 ```
 
 That starts Postgres on **port 55432** (not 5432, which a system Postgres may already hold)
@@ -37,7 +39,7 @@ dashboard → Project Settings → Database → Connection string. Nothing else 
 To reset the local database to a clean seeded state:
 
 ```bash
-docker compose down -v && docker compose up -d
+docker compose down -v && docker compose up -d && alembic upgrade head
 ```
 
 ## Run
@@ -50,6 +52,40 @@ uvicorn app.main:app --reload
 - Interactive docs: http://localhost:8000/docs
 - Health check: http://localhost:8000/health — returns `200` with `"database": "connected"`
   when Supabase is reachable, `503` when it isn't.
+
+## Auth
+
+Email + password, with stateless JWT access tokens (HS256, 60 minutes by default).
+
+| Endpoint | |
+|---|---|
+| `POST /auth/signup` | JSON `{email, password}` → `201` with `access_token` and `user`. `409` if the email is taken. |
+| `POST /auth/login` | Form-encoded `username` (the email) + `password` → `access_token`. `401` on any failure. |
+| `GET /auth/me` | The current user. Needs `Authorization: Bearer <token>`. |
+
+In `/docs`, click **Authorize** and enter your email as the username to call protected routes.
+
+To protect a new route, take the current user as a parameter:
+
+```python
+from app.api.deps import CurrentUser
+
+@router.get("/something")
+async def something(user: CurrentUser): ...
+```
+
+Passwords are hashed with Argon2 and must be 8–128 characters. Emails are trimmed and
+lowercased before they're stored or looked up. Not built yet: rate limiting and password
+reset (Sprint 7), refresh tokens, logout, email verification.
+
+## Tests
+
+```bash
+pytest
+```
+
+Tests run against the local Docker database (`DATABASE_URL` in `.env`). Each test runs in a
+transaction that's rolled back, so the seeded data is never changed.
 
 ## Verify the DB connection
 
@@ -69,8 +105,12 @@ app/
   core/config.py       env-backed settings (pydantic-settings)
   core/db.py           async engine, session factory, get_db dependency
   models/              SQLAlchemy models mirroring the live schema
+  core/security.py     password hashing, JWT create/decode
+  api/deps.py          shared dependencies (DbSession, CurrentUser)
   api/routes/          one module per resource
-alembic/               migrations (baseline not yet stamped — see below)
+  schemas/             request/response models
+alembic/               migrations (see below)
+tests/                 pytest suite
 scripts/check_db.py    schema/connection verification
 ```
 
@@ -90,10 +130,10 @@ asyncpg's cached statements collide across sessions.
 libpq spelling), so `db.py` strips it from the URL and sets asyncpg's `ssl` instead. You can
 paste the Supabase connection string as-is.
 
-**Alembic is baselined.** `alembic/versions/` holds one empty baseline revision
-representing the already-live schema. Because it's empty, `alembic upgrade head` is safe to
-run against any database that already has the schema — including Supabase when you get
-access there. Migrations are only needed for changes *after* that point.
+**Alembic is baselined.** The first revision in `alembic/versions/` is empty and represents
+the already-live schema, so `alembic upgrade head` is safe to run against any database that
+already has it — including Supabase when you get access there. Later revisions hold changes
+made after that point.
 
 **Keep the models and `docs/schema.sql` in sync.** `alembic revision --autogenerate` is the
 check: if it generates anything other than an empty migration, the models and the database
@@ -101,9 +141,13 @@ have drifted. This already caught one real bug — the models originally omitted
 indexes from `schema.sql`, and autogenerate proposed dropping them all, including the two
 unique indexes that enforce one-profile-per-user and one-match-per-user/opportunity.
 
-**Row Level Security is off.** Deliberately — see the note at the bottom of
-[`../docs/schema.sql`](../docs/schema.sql). It needs policies written once real auth exists
-(Sprint 1), and must be enabled before anything is exposed publicly.
+**Row Level Security is on, with no policies.** A migration enables it on every table. That
+blocks Supabase's auto-generated REST API (the `anon` and `authenticated` roles) from reading
+anything. The backend isn't affected, because RLS doesn't apply to the role that owns the
+tables. Per-user policies aren't written: the API issues its own JWTs, so Supabase's
+`auth.uid()` is never set, and access control lives in the API. **On Supabase, connect the
+backend as the role that owns the tables** (normally `postgres`), or every query returns
+nothing.
 
 ## Roadmap
 
