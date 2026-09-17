@@ -78,14 +78,38 @@ Passwords are hashed with Argon2 and must be 8–128 characters. Emails are trim
 lowercased before they're stored or looked up. Not built yet: rate limiting and password
 reset (Sprint 7), refresh tokens, logout, email verification.
 
+Two known trade-offs, both deliberate:
+
+- **Argon2 costs ~64 MB of memory per hash** (`m=65536,t=3,p=4`, pwdlib's recommended
+  settings). That's what makes stolen hashes expensive to crack, but it also means
+  concurrent signups are memory-hungry. Rate limiting (Sprint 7) is the fix; don't lower
+  the cost parameters instead.
+- **Signup reveals whether an email is registered**, via the 409. Login deliberately does
+  not — unknown email and wrong password return an identical 401 in the same amount of
+  time. Hiding it at signup as well would mean replying "check your email" to every
+  attempt, which needs the email sending built in Sprint 6.
+
+`ENVIRONMENT` must be `development`, `staging` or `production`; an unrecognised value stops
+the app at startup rather than silently skipping the `JWT_SECRET` strength check that
+`staging` and `production` enforce.
+
 ## Tests
 
 ```bash
 pytest
 ```
 
-Tests run against the local Docker database (`DATABASE_URL` in `.env`). Each test runs in a
-transaction that's rolled back, so the seeded data is never changed.
+Tests run against the local Docker database (`DATABASE_URL` in `.env`, or `TEST_DATABASE_URL`
+if set). Each test runs in a transaction that's rolled back, so the seeded data is never
+changed.
+
+The suite refuses to start if that database isn't on a local host, so a `.env` pointing at
+Supabase can't send the tests at production data. Override with `ALLOW_NONLOCAL_TEST_DB=1`
+only if you're certain.
+
+The same steps run in CI on every PR that touches `backend/`
+([`.github/workflows/backend-tests.yml`](../.github/workflows/backend-tests.yml)), including
+`alembic check` to catch models drifting from `docs/schema.sql`.
 
 ## Verify the DB connection
 
@@ -127,8 +151,14 @@ disables both prepared-statement caches, because pgbouncer's transaction pooling
 asyncpg's cached statements collide across sessions.
 
 **`sslmode` is translated automatically.** asyncpg has no `sslmode` parameter (that's the
-libpq spelling), so `db.py` strips it from the URL and sets asyncpg's `ssl` instead. You can
-paste the Supabase connection string as-is.
+libpq spelling), so `db.py` strips it from the URL and sets asyncpg's `ssl` instead, so the
+`?sslmode=require` Supabase appends works untouched.
+
+**Percent-encode special characters in the password.** Supabase's copied string contains a
+literal `[YOUR-PASSWORD]` placeholder, and brackets — like `@`, `/`, `#` and `?` — can't
+appear raw in a URL. Replace the placeholder and encode anything exotic (`[` is `%5B`, `]`
+is `%5D`, `@` is `%40`). An unencoded password fails to parse before any connection is
+attempted; `db.py` reports that as a readable error rather than a stack trace.
 
 **Alembic is baselined.** The first revision in `alembic/versions/` is empty and represents
 the already-live schema, so `alembic upgrade head` is safe to run against any database that

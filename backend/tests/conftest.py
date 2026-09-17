@@ -1,4 +1,6 @@
+import os
 from collections.abc import AsyncGenerator
+from urllib.parse import urlsplit
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -6,15 +8,36 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from app.core.config import get_settings
-from app.core.db import _build_engine_args, get_db
+from app.core.db import build_engine_args, get_db
 from app.main import app
+
+
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "db"}
+
+
+def _test_database_url() -> str:
+    """The database tests may use — a local one, unless explicitly overridden.
+
+    Tests write real rows (rolled back afterwards), so pointing `.env` at Supabase would
+    aim the suite at production data. Refuse rather than trust the rollback.
+    """
+    url = os.getenv("TEST_DATABASE_URL") or get_settings().database_url
+    host = urlsplit(url).hostname
+    if host not in LOCAL_HOSTS and os.getenv("ALLOW_NONLOCAL_TEST_DB") != "1":
+        pytest.exit(
+            f"Refusing to run tests against non-local database host {host!r}. "
+            "Point DATABASE_URL at the local Docker Postgres, set TEST_DATABASE_URL, "
+            "or set ALLOW_NONLOCAL_TEST_DB=1 if you really mean it.",
+            returncode=1,
+        )
+    return url
 
 
 @pytest.fixture
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
     # A fresh engine per test: asyncpg connections are bound to the event loop that opened
     # them, and pytest-asyncio gives each test its own loop.
-    url, connect_args, engine_kwargs = _build_engine_args(get_settings().database_url)
+    url, connect_args, engine_kwargs = build_engine_args(_test_database_url())
     engine = create_async_engine(
         url, poolclass=NullPool, connect_args=connect_args, **engine_kwargs
     )

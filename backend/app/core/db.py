@@ -8,8 +8,18 @@ from app.core.config import get_settings
 SUPABASE_POOLER_PORT = 6543
 
 
-def _build_engine_args(url: str) -> tuple[str, dict, dict]:
-    parsed = urlsplit(url)
+def build_engine_args(url: str) -> tuple[str, dict, dict]:
+    try:
+        parsed = urlsplit(url)
+    except ValueError as exc:
+        # A password containing URL-reserved characters (brackets, @, /, #, ?) breaks
+        # parsing before anything connects. Supabase's copied string also arrives with a
+        # literal [YOUR-PASSWORD] placeholder, which fails the same way.
+        raise RuntimeError(
+            "DATABASE_URL could not be parsed. If the password contains special "
+            "characters, percent-encode them ([ is %5B, ] is %5D, @ is %40), and make "
+            "sure any [YOUR-PASSWORD] placeholder has been replaced."
+        ) from exc
     query = dict(parse_qsl(parsed.query))
     connect_args: dict = {}
     engine_kwargs: dict = {}
@@ -37,7 +47,7 @@ def _build_engine_args(url: str) -> tuple[str, dict, dict]:
 
 
 _settings = get_settings()
-_url, _connect_args, _engine_kwargs = _build_engine_args(_settings.database_url)
+_url, _connect_args, _engine_kwargs = build_engine_args(_settings.database_url)
 
 engine = create_async_engine(
     _url,

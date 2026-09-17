@@ -24,6 +24,8 @@ from app.schemas.auth import (
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+UNIQUE_VIOLATION = "23505"  # Postgres SQLSTATE
+
 
 @router.post("/signup", status_code=status.HTTP_201_CREATED, response_model=SignupResponse)
 async def signup(body: SignupRequest, db: DbSession) -> SignupResponse:
@@ -33,8 +35,12 @@ async def signup(body: SignupRequest, db: DbSession) -> SignupResponse:
     # lets two concurrent signups for the same email both pass the check.
     try:
         await db.commit()
-    except IntegrityError:
+    except IntegrityError as exc:
         await db.rollback()
+        # Only a unique violation means "email taken". Any other constraint (a CHECK on the
+        # notification columns, say) is a bug here, and must not be reported as a conflict.
+        if getattr(exc.orig, "sqlstate", None) != UNIQUE_VIOLATION:
+            raise
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="An account with this email already exists",

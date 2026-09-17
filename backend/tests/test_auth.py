@@ -1,7 +1,9 @@
 import uuid
 
+import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import create_access_token
@@ -65,6 +67,23 @@ async def test_signup_duplicate_email_conflicts(client: AsyncClient):
 
     resp = await signup(client, email="ADA@example.com")
     assert resp.status_code == 409
+
+
+async def test_signup_does_not_report_other_constraints_as_conflict(
+    client: AsyncClient, db_session: AsyncSession, monkeypatch
+):
+    """A CHECK violation is a bug, not a taken email — it must not surface as a 409."""
+
+    class CheckViolation(Exception):
+        sqlstate = "23514"
+
+    async def fail(*args, **kwargs):
+        raise IntegrityError("insert", None, CheckViolation())
+
+    monkeypatch.setattr(type(db_session), "commit", fail)
+
+    with pytest.raises(IntegrityError):
+        await signup(client)
 
 
 async def test_signup_rejects_invalid_email(client: AsyncClient):

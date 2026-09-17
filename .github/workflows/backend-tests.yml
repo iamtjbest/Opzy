@@ -1,0 +1,63 @@
+name: Backend tests
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - "docs/schema.sql"
+      - "docs/seed.sql"
+      - ".github/workflows/backend-tests.yml"
+  push:
+    branches: [main]
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: opzy
+          POSTGRES_PASSWORD: opzy_ci
+          POSTGRES_DB: opzy
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U opzy -d opzy"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # localhost, so the test suite's non-local database guard is satisfied.
+      DATABASE_URL: postgresql://opzy:opzy_ci@127.0.0.1:5432/opzy
+      JWT_SECRET: ci-secret-not-used-anywhere-real-000000
+      ENVIRONMENT: development
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - run: pip install -r requirements-dev.txt
+
+      - name: Load schema and seed data
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f ../docs/schema.sql -f ../docs/seed.sql
+
+      - name: Apply migrations
+        run: alembic upgrade head
+
+      - name: Check models match the database
+        # A non-empty autogenerate means the models and docs/schema.sql have drifted.
+        run: alembic check
+
+      - run: pytest -q
