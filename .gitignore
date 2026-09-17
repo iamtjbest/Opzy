@@ -17,3 +17,7 @@ venv/
 # Editor / OS
 .DS_Store
 .vscode/
+
+# Planning docs are kept local, not versioned.
+docs/ROADMAP.md
+docs/sprints/
