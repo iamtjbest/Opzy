@@ -119,3 +119,82 @@ def test_weights_are_tunable():
 def test_weights_must_total_100():
     with pytest.raises(ValueError, match="100"):
         Weights(field=50, skills=50, interest=50)
+
+
+# --- explanations ----------------------------------------------------------------------
+
+from app.matching.explain import explain
+from app.matching.feed import build_feed
+
+
+def _explain(facts: UserFacts = FACTS, **fields) -> str:
+    opp = _opp(**fields)
+    return explain(facts, opp, relevance(facts, opp))
+
+
+def test_explains_every_signal_and_the_eligibility_it_checked():
+    assert _explain(
+        category="internship",
+        fields_of_study=["Engineering"],
+        skills=["Python", "Figma", "Go"],
+        eligible_countries=["NG"],
+        education_levels=["undergraduate"],
+    ) == (
+        "Recommended because you study Computer Engineering, you know Python and Figma, "
+        "and you're looking for internships. It's open to undergraduates from Nigeria."
+    )
+
+
+def test_country_only_eligibility():
+    assert _explain(category="job", eligible_countries=["NG"]) == (
+        "Recommended because you're looking for jobs. It's open to applicants from Nigeria."
+    )
+
+
+def test_eligible_but_no_relevance_says_so():
+    assert _explain(education_levels=["undergraduate"]) == (
+        "Shown because it's open to undergraduates, though it doesn't match your field, "
+        "skills or interests."
+    )
+
+
+def test_nothing_known_still_gets_a_reason():
+    assert _explain() == (
+        "Shown because nothing in its listed requirements rules you out, though it doesn't "
+        "match your field, skills or interests."
+    )
+
+
+def test_never_claims_eligibility_it_could_not_check():
+    facts = replace(UNKNOWN, interests=frozenset({"job"}))
+
+    assert _explain(facts, category="job", eligible_countries=["NG"],
+                    education_levels=["undergraduate"]) == (
+        "Recommended because you're looking for jobs."
+    )
+
+
+def test_uses_the_everyday_country_name():
+    facts = replace(FACTS, nationality="TZ")
+
+    assert "from Tanzania," in _explain(facts, eligible_countries=["TZ"])
+
+
+# --- feed ------------------------------------------------------------------------------
+
+
+def test_build_feed_drops_ineligible_and_ranks_the_rest():
+    opportunities = [
+        _opp(title="ineligible", category="job", eligible_countries=["GH"]),
+        _opp(title="rolling", category="job"),
+        _opp(title="b soon", category="job", deadline=date(2026, 10, 1)),
+        _opp(title="a soon", category="job", deadline=date(2026, 10, 1)),
+        _opp(title="best", category="job", skills=["Python"]),
+        _opp(title="zero"),
+    ]
+
+    feed = build_feed(FACTS, opportunities, TODAY)
+
+    assert [m.opportunity.title for m in feed] == ["best", "a soon", "b soon", "rolling", "zero"]
+    assert [m.score for m in feed] == [60, 20, 20, 20, 0]
+    assert all(m.explanation for m in feed)
