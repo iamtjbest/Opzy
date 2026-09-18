@@ -78,6 +78,7 @@ async def test_get_profile_before_onboarding_is_404(client: AsyncClient):
     resp = await client.get("/profile", headers=headers)
 
     assert resp.status_code == 404
+    assert resp.json()["detail"] == "Profile not found"
 
 
 async def test_put_creates_profile_and_get_returns_it(client: AsyncClient):
@@ -174,6 +175,23 @@ async def test_put_normalizes_input(client: AsyncClient):
     assert body["location"] is None
     assert body["skills"] == ["figma", "python"]
     assert body["interests"] == ["job", "hackathon"]
+
+
+async def test_skills_are_sorted_alphabetically_not_by_db_collation(client: AsyncClient):
+    # Under the local DB's en_US.utf8 collation, ORDER BY gives ["publicity", "public speaking"];
+    # Python's sort (C collation) gives ["public speaking", "publicity"]. The API contract is
+    # alphabetical order, deterministic regardless of the DB's collation.
+    headers = await auth_headers(client)
+
+    put = await client.put(
+        "/profile", json={**ONBOARDING, "skills": ["publicity", "Public speaking"]}, headers=headers
+    )
+
+    assert put.status_code == 200
+    assert put.json()["skills"] == ["public speaking", "publicity"]
+
+    get = await client.get("/profile", headers=headers)
+    assert get.json()["skills"] == ["public speaking", "publicity"]
 
 
 async def test_put_bumps_updated_at(client: AsyncClient):

@@ -13,24 +13,29 @@ from app.schemas.profile import ProfileRead, ProfileUpdate
 router = APIRouter(prefix="/profile", tags=["profile"])
 
 
-async def _to_read(db: AsyncSession, profile: Profile) -> ProfileRead:
-    skills = await db.scalars(
-        select(ProfileSkill.skill)
-        .where(ProfileSkill.profile_id == profile.id)
-        .order_by(ProfileSkill.skill)
-    )
-    interests = await db.scalars(
-        select(ProfileInterest.opportunity_type).where(ProfileInterest.profile_id == profile.id)
-    )
+def _build_read(profile: Profile, skills: list[str], interests: list[str]) -> ProfileRead:
     return ProfileRead(
         education_level=profile.education_level,
         field_of_study=profile.field_of_study,
         location=profile.location,
-        skills=list(skills),
+        # Sorted in Python, not via ORDER BY: SQL collation (e.g. en_US.utf8 locally) can order
+        # strings differently from Python's, so the API's "alphabetical" contract must not depend
+        # on which DB it's running against.
+        skills=sorted(skills),
         # Canonical order, so the response doesn't depend on insertion order.
         interests=sorted(interests, key=OPPORTUNITY_TYPES.index),
         updated_at=profile.updated_at,
     )
+
+
+async def _to_read(db: AsyncSession, profile: Profile) -> ProfileRead:
+    skills = await db.scalars(
+        select(ProfileSkill.skill).where(ProfileSkill.profile_id == profile.id)
+    )
+    interests = await db.scalars(
+        select(ProfileInterest.opportunity_type).where(ProfileInterest.profile_id == profile.id)
+    )
+    return _build_read(profile, list(skills), list(interests))
 
 
 @router.get("", response_model=ProfileRead)
@@ -71,4 +76,7 @@ async def put_profile(body: ProfileUpdate, user: CurrentUser, db: DbSession) -> 
     )
     await db.commit()
 
-    return await _to_read(db, profile)
+    # Built from the request body's already-normalized lists, not re-queried: the commit above
+    # releases the row lock, so a re-query could race a concurrent PUT for the same user and mix
+    # this request's text fields with another request's tags. It also saves two SELECTs.
+    return _build_read(profile, body.skills, body.interests)
