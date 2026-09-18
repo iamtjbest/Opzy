@@ -6,7 +6,10 @@ from datetime import date
 import pytest
 
 from app.matching.engine import UserFacts, Relevance, Weights, is_eligible, relevance
+from app.matching.explain import EDUCATION_PLURALS, explain
+from app.matching.feed import build_feed
 from app.models import Opportunity
+from app.models.base import EDUCATION_LEVELS
 
 TODAY = date(2026, 9, 18)
 
@@ -123,13 +126,14 @@ def test_weights_must_total_100():
 
 # --- explanations ----------------------------------------------------------------------
 
-from app.matching.explain import explain
-from app.matching.feed import build_feed
-
 
 def _explain(facts: UserFacts = FACTS, **fields) -> str:
     opp = _opp(**fields)
     return explain(facts, opp, relevance(facts, opp))
+
+
+def test_every_education_level_has_a_plural():
+    assert list(EDUCATION_PLURALS) == list(EDUCATION_LEVELS)
 
 
 def test_explains_every_signal_and_the_eligibility_it_checked():

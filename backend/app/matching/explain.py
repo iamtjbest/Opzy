@@ -9,6 +9,7 @@ from app.core.countries import country_name
 from app.matching.engine import Relevance, UserFacts
 from app.models import Opportunity
 
+# One label per EDUCATION_LEVELS value; a test keeps the two in step.
 EDUCATION_PLURALS = {
     "secondary": "secondary school students",
     "undergraduate": "undergraduates",
