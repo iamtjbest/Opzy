@@ -6,6 +6,8 @@ on:
       - "backend/**"
       - "docs/schema.sql"
       - "docs/seed.sql"
+      - "docs/seed_opportunities_dev.sql"
+      - "docs/OPZY_SOURCE_TRACKING.xlsx"
       - ".github/workflows/backend-tests.yml"
   push:
     branches: [main]
@@ -51,7 +53,7 @@ jobs:
       - run: pip install -r requirements-dev.txt
 
       - name: Load schema and seed data
-        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f ../docs/schema.sql -f ../docs/seed.sql
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f ../docs/schema.sql -f ../docs/seed.sql -f ../docs/seed_opportunities_dev.sql
 
       - name: Apply migrations
         run: alembic upgrade head
