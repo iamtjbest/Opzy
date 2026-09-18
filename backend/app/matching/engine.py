@@ -32,6 +32,8 @@ class Weights:
     interest: int = 20
 
     def __post_init__(self) -> None:
+        if self.field < 0 or self.skills < 0 or self.interest < 0:
+            raise ValueError("weights must not be negative")
         if self.field + self.skills + self.interest != 100:
             raise ValueError("weights must total 100")
 

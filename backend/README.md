@@ -2,9 +2,11 @@
 
 FastAPI + SQLAlchemy (async) over the Postgres database already live in Supabase.
 
-Schema is **not** managed from here — it was created from [`../docs/schema.sql`](../docs/schema.sql)
-and is documented in [`../docs/DATABASE_SCHEMA.md`](../docs/DATABASE_SCHEMA.md). The models in
-`app/models/` mirror it; they do not define it.
+Schema management is split in two: [`../docs/schema.sql`](../docs/schema.sql) is the baseline
+that was applied to the live project, and everything since is an Alembic revision under
+[`alembic/versions/`](alembic/versions/), applied with `alembic upgrade head`. Both are
+documented in [`../docs/DATABASE_SCHEMA.md`](../docs/DATABASE_SCHEMA.md). The models in
+`app/models/` mirror the result; they do not define it.
 
 ## Setup
 
@@ -39,11 +41,23 @@ script after migrations, since they use columns only the migrations create (see
 To point at Supabase instead, swap `DATABASE_URL` for the connection string from the
 dashboard → Project Settings → Database → Connection string. Nothing else changes.
 
+**Applying schema changes to Supabase.** Run `alembic upgrade head` against Supabase, then
+deploy the matching backend right away — old code and the new schema (and vice versa) break
+each other. For example, the education-level CHECK rejects old free-text values, and new
+code expects the new columns. Never run [`../docs/seed_opportunities_dev.sql`](../docs/seed_opportunities_dev.sql)
+or `scripts.seed_opportunities --sql`'s output against Supabase: the sheet holds fictional
+rows. The real opportunities' structured eligibility values don't have a production load
+path yet; that's a known open item.
+
 To reset the local database to a clean seeded state:
 
 ```bash
 docker compose down -v && docker compose up -d && alembic upgrade head && python -m scripts.seed_opportunities
 ```
+
+If you're an existing developer pulling new migrations rather than starting fresh, run
+`alembic upgrade head` and then `python -m scripts.seed_opportunities` so your existing dev
+rows pick up any new sheet columns.
 
 ## Run
 

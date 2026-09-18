@@ -124,6 +124,11 @@ def test_weights_must_total_100():
         Weights(field=50, skills=50, interest=50)
 
 
+def test_weights_cannot_be_negative():
+    with pytest.raises(ValueError, match="negative"):
+        Weights(field=-20, skills=100, interest=20)
+
+
 # --- explanations ----------------------------------------------------------------------
 
 
