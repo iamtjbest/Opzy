@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from app.models import Opportunity
+from app.models.base import ACTIVE_STATUS
 
 
 @dataclass(frozen=True)
@@ -48,7 +49,7 @@ class Relevance:
 
 def is_eligible(facts: UserFacts, opportunity: Opportunity, today: date) -> bool:
     """Hard constraints. Each blocks only when both sides are known and they conflict."""
-    if opportunity.status != "active":
+    if opportunity.status != ACTIVE_STATUS:
         return False
     if opportunity.deadline is not None and opportunity.deadline < today:
         return False

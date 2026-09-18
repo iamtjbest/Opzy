@@ -20,6 +20,8 @@ OPPORTUNITY_TYPES = (
     "competition",
 )
 OPPORTUNITY_STATUSES = ("active", "expired", "removed")
+# The one status users ever see in listings and the feed.
+ACTIVE_STATUS = OPPORTUNITY_STATUSES[0]
 USER_ACTIONS = ("saved", "dismissed", "applied")
 
 # Profile education level, and what an opportunity accepts. "graduate" means a first degree
