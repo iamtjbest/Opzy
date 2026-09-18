@@ -4,12 +4,14 @@ from urllib.parse import urlsplit
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from app.core.config import get_settings
 from app.core.db import build_engine_args, get_db
 from app.main import app
+from app.models import Opportunity, OpportunityMatch, UserOpportunityAction
 
 
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "db"}
@@ -69,3 +71,12 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
             yield c
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.fixture
+async def empty_opportunities(db_session: AsyncSession) -> None:
+    # The dev database is seeded with opportunities; clear them (inside the rolled-back test
+    # transaction) so each test sees only the rows it creates.
+    await db_session.execute(delete(OpportunityMatch))
+    await db_session.execute(delete(UserOpportunityAction))
+    await db_session.execute(delete(Opportunity))

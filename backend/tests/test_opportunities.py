@@ -3,20 +3,10 @@ from datetime import date
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Opportunity, OpportunityMatch, UserOpportunityAction
+from app.models import Opportunity
 from tests.test_profile import auth_headers
-
-
-@pytest.fixture
-async def empty_opportunities(db_session: AsyncSession) -> None:
-    # The dev database is seeded with opportunities; clear them (inside the rolled-back test
-    # transaction) so each test sees only the rows it creates.
-    await db_session.execute(delete(OpportunityMatch))
-    await db_session.execute(delete(UserOpportunityAction))
-    await db_session.execute(delete(Opportunity))
 
 
 async def _add(db_session: AsyncSession, **fields) -> Opportunity:

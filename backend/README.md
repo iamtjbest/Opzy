@@ -165,6 +165,32 @@ Read-only for now. Both routes need `Authorization: Bearer <token>`.
 `status` is set by hand. An opportunity whose deadline has passed stays `active` until
 someone changes it, so use `deadline_after` to hide those.
 
+### Feed
+
+`GET /feed` — the logged-in user's matches, best first. Requires a Bearer token; `404`
+`"Profile not found"` until they've saved a profile.
+
+Query: `category` (repeatable), `limit` (1–100, default 20), `offset`.
+
+```json
+{"items": [{"opportunity": {…}, "score": 73,
+            "explanation": "Recommended because you study Computer Engineering, you know Python, and you're looking for internships. It's open to undergraduates."}],
+ "total": 10, "limit": 20, "offset": 0}
+```
+
+How matching works (`app/matching/`):
+
+- **Hard eligibility** drops an opportunity when its `eligible_countries` or
+  `education_levels` exclude the user's `nationality` or `education_level`, when its
+  deadline has passed (Lagos date), or when it isn't `active`. Empty lists and unknown
+  profile values never block.
+- **Score** (0–100) = field of study 40 + skill overlap 40 × share of the opportunity's
+  skills + wanted category 20. Weights live in `Weights` in `app/matching/engine.py`;
+  they're deliberately untuned until there's usage data.
+- **Ranking**: score, then soonest deadline (rolling last), then title.
+- **Explanation**: every match gets one, and it only claims eligibility that was checked.
+- Computed per request; nothing is written to `opportunity_matches` yet.
+
 ## Seeding opportunities
 
 Opportunities are entered by hand in
