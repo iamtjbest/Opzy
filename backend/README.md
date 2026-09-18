@@ -30,7 +30,9 @@ alembic upgrade head
 That starts Postgres on **port 55432** (not 5432, which a system Postgres may already hold)
 and applies [`../docs/schema.sql`](../docs/schema.sql) and
 [`../docs/seed.sql`](../docs/seed.sql) automatically on first run — the same SQL that was
-applied to the live Supabase project. The matching `DATABASE_URL` is already in
+applied to the live Supabase project — followed by the dev-only opportunities in
+[`../docs/seed_opportunities_dev.sql`](../docs/seed_opportunities_dev.sql) (see
+[Seeding opportunities](#seeding-opportunities)). The matching `DATABASE_URL` is already in
 `.env.example`.
 
 To point at Supabase instead, swap `DATABASE_URL` for the connection string from the
@@ -122,6 +124,66 @@ One profile per user, holding the onboarding fields. Both routes need
 - The database enforces one row per skill/interest per profile as well
   (`UNIQUE (profile_id, skill)`, `UNIQUE (profile_id, opportunity_type)`).
 
+## Opportunities
+
+Read-only for now. Both routes need `Authorization: Bearer <token>`.
+
+| Endpoint | |
+|---|---|
+| `GET /opportunities` | A page of opportunities, soonest deadline first, rolling/unconfirmed deadlines last. |
+| `GET /opportunities/{id}` | One opportunity. `404` if it doesn't exist or has been `removed`; expired ones are still returned. |
+
+`GET /opportunities` query parameters, all optional and combinable:
+
+| Param | |
+|---|---|
+| `category` | Repeat to match any of several: `?category=job&category=internship`. Stored values only (`job`, `internship`, `scholarship`, `fellowship`, `grant`, `hackathon`, `competition`); anything else is `422`. |
+| `geography` | Case-insensitive substring of the free-text geography — `lagos` matches "Lagos (in-person, …)". |
+| `status` | `active` (default) or `expired`. `removed` is never served. |
+| `deadline_after` | `YYYY-MM-DD`; keeps deadlines **on or after** that date. Pass today's date to hide ones that have passed. |
+| `include_rolling` | Default `true`: keep opportunities with no deadline. `false` drops them. |
+| `limit` / `offset` | Page size 1–100 (default 20) and offset (default 0). |
+
+```json
+{
+  "items": [
+    {
+      "id": "…", "title": "Chevening Scholarship", "organization": "UK FCDO",
+      "category": "scholarship", "geography": "Nigeria (study in UK)",
+      "description": "…", "deadline": "2026-10-06", "eligibility_notes": "…",
+      "application_url": "…", "source_url": "…", "quality_rating": 5,
+      "verified": true, "status": "active", "created_at": "…", "updated_at": "…"
+    }
+  ],
+  "total": 19, "limit": 20, "offset": 0
+}
+```
+
+`total` counts every row matching the filters, not just this page.
+
+`status` is set by hand. An opportunity whose deadline has passed stays `active` until
+someone changes it, so use `deadline_after` to hide those.
+
+## Seeding opportunities
+
+Opportunities are entered by hand in
+[`../docs/OPZY_SOURCE_TRACKING.xlsx`](../docs/OPZY_SOURCE_TRACKING.xlsx), whose columns map
+1:1 to the table (its Legend tab explains each one). **Right now most rows are fictional dev
+data**, shaded and marked `DUMMY` in the Notes column. Only the four verified rows from
+`seed.sql` are real.
+
+```bash
+python -m scripts.seed_opportunities          # insert new rows into DATABASE_URL
+python -m scripts.seed_opportunities --sql    # regenerate ../docs/seed_opportunities_dev.sql
+```
+
+- Both are safe to re-run: rows whose title and organization already exist are skipped.
+- Inserting refuses a non-local `DATABASE_URL` unless you pass `--allow-nonlocal`, so the
+  dummy rows can't land in Supabase by accident.
+- After editing the sheet, regenerate the SQL file. A test fails if the two drift apart.
+- `docs/seed_opportunities_dev.sql` is for local Docker and CI only. **Don't run it on
+  production.**
+
 ## Tests
 
 ```bash
@@ -147,8 +209,7 @@ python -m scripts.check_db
 ```
 
 Prints a row count for all seven live tables and loads one full `Opportunity` row, which
-confirms every mapped column matches the live schema. Expect `opportunities` to be empty
-until Sprint 3 seeds it.
+confirms every mapped column matches the live schema.
 
 ## Layout
 
@@ -165,6 +226,7 @@ app/
 alembic/               migrations (see below)
 tests/                 pytest suite
 scripts/check_db.py    schema/connection verification
+scripts/seed_opportunities.py  load opportunities from the tracking sheet
 ```
 
 ## Things worth knowing
