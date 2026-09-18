@@ -93,6 +93,35 @@ Two known trade-offs, both deliberate:
 the app at startup rather than silently skipping the `JWT_SECRET` strength check that
 `staging` and `production` enforce.
 
+## Profile
+
+One profile per user, holding the onboarding fields. Both routes need
+`Authorization: Bearer <token>`.
+
+| Endpoint | |
+|---|---|
+| `GET /profile` | The current user's profile. `404` if they haven't onboarded yet. |
+| `PUT /profile` | Replaces the whole profile — every key required; send `null` / `[]` to clear. Returns the saved profile. |
+
+```json
+{
+  "education_level": "University student",
+  "field_of_study": "Computer Engineering",
+  "location": "Zaria, Kaduna",
+  "skills": ["Python", "Figma"],
+  "interests": ["job", "internship"]
+}
+```
+
+- Text fields are trimmed, blank becomes `null`, max 100 characters.
+- Skills are trimmed, lowercased and deduped (max 30, each 1–50 characters), and returned
+  alphabetically.
+- Interests must be the stored values (`job`, `internship`, `scholarship`, `fellowship`,
+  `grant`, `hackathon`, `competition`), not display labels like "Jobs". They're deduped and
+  returned in that order.
+- The database enforces one row per skill/interest per profile as well
+  (`UNIQUE (profile_id, skill)`, `UNIQUE (profile_id, opportunity_type)`).
+
 ## Tests
 
 ```bash
