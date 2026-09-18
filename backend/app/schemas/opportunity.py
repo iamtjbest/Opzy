@@ -26,6 +26,11 @@ class OpportunityRead(BaseModel):
     # Null means rolling or unconfirmed.
     deadline: date | None
     eligibility_notes: str | None
+    # Empty means unrestricted (countries, levels) or none listed (fields, skills).
+    eligible_countries: list[str]
+    education_levels: list[str]
+    fields_of_study: list[str]
+    skills: list[str]
     application_url: str | None
     source_url: str | None
     quality_rating: int | None

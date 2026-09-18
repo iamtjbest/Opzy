@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import TIMESTAMP, Boolean, Date, Index, Integer, Text, func, text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -27,6 +27,23 @@ class Opportunity(Base):
     # Null means rolling or unconfirmed deadline, matching the source tracking sheet.
     deadline: Mapped[date | None] = mapped_column(Date)
     eligibility_notes: Mapped[str | None] = mapped_column(Text)
+    # Structured eligibility and relevance data, entered in the tracking sheet. Empty means
+    # unrestricted (countries, levels) or none listed (fields, skills), never "no one".
+    # ISO 3166 alpha-2 codes, e.g. ["NG", "GH"].
+    eligible_countries: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, default=list, server_default=text("'{}'")
+    )
+    # Values from EDUCATION_LEVELS.
+    education_levels: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, default=list, server_default=text("'{}'")
+    )
+    # As entered ("Computer Science"); matching compares case-insensitively.
+    fields_of_study: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, default=list, server_default=text("'{}'")
+    )
+    skills: Mapped[list[str]] = mapped_column(
+        ARRAY(Text), nullable=False, default=list, server_default=text("'{}'")
+    )
     application_url: Mapped[str | None] = mapped_column(Text)
     source_url: Mapped[str | None] = mapped_column(Text)
     quality_rating: Mapped[int | None] = mapped_column(Integer)

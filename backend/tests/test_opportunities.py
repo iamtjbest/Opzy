@@ -267,6 +267,35 @@ async def test_pagination_bounds(client: AsyncClient, params: dict):
     assert resp.status_code == 422
 
 
+async def test_structured_eligibility_defaults_to_empty_lists(
+    client: AsyncClient, db_session: AsyncSession
+):
+    await _add(db_session, title="plain")
+    await _add(
+        db_session,
+        title="structured",
+        eligible_countries=["NG"],
+        education_levels=["undergraduate"],
+        fields_of_study=["Computer Science"],
+        skills=["Python"],
+    )
+    headers = await auth_headers(client)
+
+    resp = await client.get("/opportunities", headers=headers)
+
+    by_title = {item["title"]: item for item in resp.json()["items"]}
+    assert {k: by_title["plain"][k] for k in ("eligible_countries", "education_levels", "fields_of_study", "skills")} == {
+        "eligible_countries": [],
+        "education_levels": [],
+        "fields_of_study": [],
+        "skills": [],
+    }
+    assert by_title["structured"]["eligible_countries"] == ["NG"]
+    assert by_title["structured"]["education_levels"] == ["undergraduate"]
+    assert by_title["structured"]["fields_of_study"] == ["Computer Science"]
+    assert by_title["structured"]["skills"] == ["Python"]
+
+
 # --- detail ----------------------------------------------------------------------------
 
 

@@ -66,6 +66,10 @@ table with almost no transformation.
 | description | text | |
 | deadline | date, nullable | null means rolling/unconfirmed, matches sheet's "NOT CONFIRMED" rows |
 | eligibility_notes | text | free text for now, matches sheet |
+| eligible_countries | text[], default '{}' | ISO alpha-2 codes; empty = any country. Hard constraint. |
+| education_levels | text[], default '{}' | secondary / undergraduate / graduate / postgraduate; empty = any level. Hard constraint. |
+| fields_of_study | text[], default '{}' | e.g. "Computer Science"; empty = any field. Ranking only. |
+| skills | text[], default '{}' | e.g. "Python"; empty = none listed. Ranking only. |
 | application_url | text | |
 | source_url | text | where it was found |
 | quality_rating | integer (1-5) | matches sheet's star rating |
@@ -74,10 +78,10 @@ table with almost no transformation.
 | created_at | timestamp | |
 | updated_at | timestamp | |
 
-**Deliberately not yet split out:** structured eligibility rules (country, age, education
-level as separate filterable fields). Free-text `eligibility_notes` is enough for the first
-10-30 manually-entered opportunities. Splitting it into real filterable columns is worth
-doing once there's enough volume that free-text matching stops being good enough, not before.
+**Structured eligibility (Sprint 4):** country and education level are real columns because
+the matching engine filters on them deterministically; `eligibility_notes` stays as free
+text for everything else (age, experience, documents) and is never parsed for matching.
+Age and experience can become columns the same way once matching needs them.
 
 ## opportunity_matches
 
