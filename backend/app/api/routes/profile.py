@@ -15,6 +15,7 @@ router = APIRouter(prefix="/profile", tags=["profile"])
 
 def _build_read(profile: Profile, skills: list[str], interests: list[str]) -> ProfileRead:
     return ProfileRead(
+        nationality=profile.nationality,
         education_level=profile.education_level,
         field_of_study=profile.field_of_study,
         location=profile.location,
@@ -50,6 +51,7 @@ async def get_profile(user: CurrentUser, db: DbSession) -> ProfileRead:
 @router.put("", response_model=ProfileRead)
 async def put_profile(body: ProfileUpdate, user: CurrentUser, db: DbSession) -> ProfileRead:
     fields = {
+        "nationality": body.nationality,
         "education_level": body.education_level,
         "field_of_study": body.field_of_study,
         "location": body.location,

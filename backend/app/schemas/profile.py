@@ -3,13 +3,21 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
-from app.models.base import OPPORTUNITY_TYPES
+from app.core.countries import is_country
+from app.models.base import EDUCATION_LEVELS, OPPORTUNITY_TYPES
 
 MAX_TEXT_LENGTH = 100
 MAX_SKILLS = 30
 MAX_SKILL_LENGTH = 50
 
 OpportunityType = Literal[OPPORTUNITY_TYPES]  # type: ignore[valid-type]
+
+EducationLevel = Literal[EDUCATION_LEVELS]  # type: ignore[valid-type]
+
+# Accepted in any case, stored uppercase: "ng" and "NG" are the same country.
+Nationality = Annotated[
+    str, StringConstraints(strip_whitespace=True, to_upper=True, min_length=2, max_length=2)
+]
 
 ProfileText = Annotated[str, Field(max_length=MAX_TEXT_LENGTH)]
 
@@ -31,17 +39,25 @@ class ProfileUpdate(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    education_level: ProfileText | None
+    nationality: Nationality | None
+    education_level: EducationLevel | None
     field_of_study: ProfileText | None
     location: ProfileText | None
     skills: list[Skill] = Field(max_length=MAX_SKILLS)
     interests: list[OpportunityType] = Field(max_length=len(OPPORTUNITY_TYPES))
 
-    @field_validator("education_level", "field_of_study", "location", mode="before")
+    @field_validator("nationality", "education_level", "field_of_study", "location", mode="before")
     @classmethod
     def _blank_to_none(cls, value: object) -> object:
         if isinstance(value, str):
             return value.strip() or None
+        return value
+
+    @field_validator("nationality")
+    @classmethod
+    def _known_country(cls, value: str | None) -> str | None:
+        if value is not None and not is_country(value):
+            raise ValueError("must be an ISO 3166 two-letter country code, e.g. NG")
         return value
 
     @field_validator("skills", "interests")
@@ -51,7 +67,8 @@ class ProfileUpdate(BaseModel):
 
 
 class ProfileRead(BaseModel):
-    education_level: str | None
+    nationality: str | None
+    education_level: EducationLevel | None
     field_of_study: str | None
     location: str | None
     skills: list[str]

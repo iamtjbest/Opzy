@@ -47,13 +47,21 @@ async def test_database_rejects_duplicate_interest(db_session: AsyncSession):
         await db_session.flush()
 
 
+async def test_database_rejects_unknown_education_level(db_session: AsyncSession):
+    profile = await _make_profile(db_session)
+    profile.education_level = "University student"
+    with pytest.raises(IntegrityError):
+        await db_session.flush()
+
+
 # --- API -------------------------------------------------------------------------------
 
 PASSWORD = "correct horse battery"
 
-# What the onboarding form sends, using the stored opportunity-type values.
+# What the onboarding form sends, using the stored values (not display labels).
 ONBOARDING = {
-    "education_level": "University student",
+    "nationality": "NG",
+    "education_level": "undergraduate",
     "field_of_study": "Computer Engineering",
     "location": "Zaria, Kaduna",
     "skills": ["Python", "Public speaking", "Figma"],
@@ -88,7 +96,8 @@ async def test_put_creates_profile_and_get_returns_it(client: AsyncClient):
 
     assert put.status_code == 200
     body = put.json()
-    assert body["education_level"] == "University student"
+    assert body["nationality"] == "NG"
+    assert body["education_level"] == "undergraduate"
     assert body["field_of_study"] == "Computer Engineering"
     assert body["location"] == "Zaria, Kaduna"
     assert body["skills"] == ["figma", "public speaking", "python"]
@@ -107,6 +116,7 @@ async def test_put_replaces_the_whole_profile(client: AsyncClient, db_session: A
     resp = await client.put(
         "/profile",
         json={
+            "nationality": None,
             "education_level": None,
             "field_of_study": "Mathematics",
             "location": "Lagos",
@@ -118,6 +128,7 @@ async def test_put_replaces_the_whole_profile(client: AsyncClient, db_session: A
 
     assert resp.status_code == 200
     body = resp.json()
+    assert body["nationality"] is None
     assert body["education_level"] is None
     assert body["field_of_study"] == "Mathematics"
     assert body["location"] == "Lagos"
@@ -159,6 +170,7 @@ async def test_put_normalizes_input(client: AsyncClient):
     resp = await client.put(
         "/profile",
         json={
+            "nationality": " ng ",
             "education_level": "   ",
             "field_of_study": "  Computer Engineering  ",
             "location": "",
@@ -170,6 +182,7 @@ async def test_put_normalizes_input(client: AsyncClient):
 
     assert resp.status_code == 200
     body = resp.json()
+    assert body["nationality"] == "NG"
     assert body["education_level"] is None
     assert body["field_of_study"] == "Computer Engineering"
     assert body["location"] is None
@@ -230,6 +243,9 @@ async def test_profiles_are_per_user(client: AsyncClient):
         {"skills": [f"skill {i}" for i in range(31)]},
         {"location": "x" * 101},
         {"unexpected": "field"},
+        {"education_level": "University student"},  # free text from before Sprint 4
+        {"nationality": "Nigeria"},
+        {"nationality": "XX"},
     ],
 )
 async def test_put_rejects_invalid_input(client: AsyncClient, change: dict):

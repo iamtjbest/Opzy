@@ -26,7 +26,8 @@ One-to-one with `users`. Matches the Onboarding screen fields exactly.
 |---|---|---|
 | id | uuid, PK | |
 | user_id | uuid, FK -> users.id | |
-| education_level | text | e.g. "University student" |
+| nationality | text, nullable | ISO 3166 alpha-2, e.g. "NG"; matched against opportunities.eligible_countries |
+| education_level | text, nullable | secondary / undergraduate / graduate / postgraduate (CHECK) |
 | field_of_study | text | e.g. "Computer Engineering" |
 | location | text | e.g. "Zaria, Kaduna" |
 | updated_at | timestamp | |

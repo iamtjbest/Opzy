@@ -21,6 +21,8 @@ class Profile(Base):
     education_level: Mapped[str | None] = mapped_column(Text)
     field_of_study: Mapped[str | None] = mapped_column(Text)
     location: Mapped[str | None] = mapped_column(Text)
+    # ISO 3166 alpha-2, e.g. "NG". Matching's country check reads this, not `location`.
+    nationality: Mapped[str | None] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True), nullable=False, server_default=func.now()
     )
