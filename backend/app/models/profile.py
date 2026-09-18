@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import TIMESTAMP, ForeignKey, Index, Text, func, text
+from sqlalchemy import TIMESTAMP, ForeignKey, Index, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -28,7 +28,10 @@ class Profile(Base):
 
 class ProfileSkill(Base):
     __tablename__ = "profile_skills"
-    __table_args__ = (Index("profile_skills_profile_id_idx", "profile_id"),)
+    __table_args__ = (
+        Index("profile_skills_profile_id_idx", "profile_id"),
+        UniqueConstraint("profile_id", "skill", name="profile_skills_profile_id_skill_key"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()")
@@ -41,7 +44,14 @@ class ProfileSkill(Base):
 
 class ProfileInterest(Base):
     __tablename__ = "profile_interests"
-    __table_args__ = (Index("profile_interests_profile_id_idx", "profile_id"),)
+    __table_args__ = (
+        Index("profile_interests_profile_id_idx", "profile_id"),
+        UniqueConstraint(
+            "profile_id",
+            "opportunity_type",
+            name="profile_interests_profile_id_opportunity_type_key",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()")
