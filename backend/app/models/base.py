@@ -21,3 +21,7 @@ OPPORTUNITY_TYPES = (
 )
 OPPORTUNITY_STATUSES = ("active", "expired", "removed")
 USER_ACTIONS = ("saved", "dismissed", "applied")
+
+# Profile education level, and what an opportunity accepts. "graduate" means a first degree
+# or HND and not studying now; "postgraduate" means a master's or PhD student or holder.
+EDUCATION_LEVELS = ("secondary", "undergraduate", "graduate", "postgraduate")

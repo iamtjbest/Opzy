@@ -25,13 +25,14 @@ Development runs against a local Postgres in Docker, so you don't need Supabase 
 ```bash
 docker compose up -d
 alembic upgrade head
+python -m scripts.seed_opportunities
 ```
 
 That starts Postgres on **port 55432** (not 5432, which a system Postgres may already hold)
 and applies [`../docs/schema.sql`](../docs/schema.sql) and
 [`../docs/seed.sql`](../docs/seed.sql) automatically on first run — the same SQL that was
-applied to the live Supabase project — followed by the dev-only opportunities in
-[`../docs/seed_opportunities_dev.sql`](../docs/seed_opportunities_dev.sql) (see
+applied to the live Supabase project. The dev-only opportunities are loaded by the seed
+script after migrations, since they use columns only the migrations create (see
 [Seeding opportunities](#seeding-opportunities)). The matching `DATABASE_URL` is already in
 `.env.example`.
 
@@ -41,7 +42,7 @@ dashboard → Project Settings → Database → Connection string. Nothing else 
 To reset the local database to a clean seeded state:
 
 ```bash
-docker compose down -v && docker compose up -d && alembic upgrade head
+docker compose down -v && docker compose up -d && alembic upgrade head && python -m scripts.seed_opportunities
 ```
 
 ## Run
@@ -177,12 +178,14 @@ python -m scripts.seed_opportunities          # insert new rows into DATABASE_UR
 python -m scripts.seed_opportunities --sql    # regenerate ../docs/seed_opportunities_dev.sql
 ```
 
-- Both are safe to re-run: rows whose title and organization already exist are skipped.
+- Both are safe to re-run: rows whose title and organization already exist are updated to
+  match the sheet; unchanged rows are left alone.
 - Inserting refuses a non-local `DATABASE_URL` unless you pass `--allow-nonlocal`, so the
   dummy rows can't land in Supabase by accident.
 - After editing the sheet, regenerate the SQL file. A test fails if the two drift apart.
 - `docs/seed_opportunities_dev.sql` is for local Docker and CI only. **Don't run it on
   production.**
+- The SQL file needs the migrated schema, so run it after `alembic upgrade head`.
 
 ## Tests
 

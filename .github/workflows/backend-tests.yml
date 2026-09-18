@@ -53,7 +53,7 @@ jobs:
       - run: pip install -r requirements-dev.txt
 
       - name: Load schema and seed data
-        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f ../docs/schema.sql -f ../docs/seed.sql -f ../docs/seed_opportunities_dev.sql
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f ../docs/schema.sql -f ../docs/seed.sql
 
       - name: Apply migrations
         run: alembic upgrade head
@@ -61,5 +61,9 @@ jobs:
       - name: Check models match the database
         # A non-empty autogenerate means the models and docs/schema.sql have drifted.
         run: alembic check
+
+      - name: Load dev opportunities
+        # After migrations: the generated SQL uses columns the migrations add.
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f ../docs/seed_opportunities_dev.sql
 
       - run: pytest -q

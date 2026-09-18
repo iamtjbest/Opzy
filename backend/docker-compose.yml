@@ -4,6 +4,9 @@
 #
 # Port 55432 on the host, because a system Postgres may already hold 5432.
 # Credentials here are local-only throwaways — never reuse them anywhere real.
+#
+# Dev opportunities are loaded after migrations (`python -m scripts.seed_opportunities`),
+# because they use columns only the migrations create.
 
 services:
   db:
@@ -21,8 +24,6 @@ services:
       # Run once, on first startup of an empty data volume.
       - ../docs/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
       - ../docs/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
-      # Dev-only: fictional opportunities generated from docs/OPZY_SOURCE_TRACKING.xlsx.
-      - ../docs/seed_opportunities_dev.sql:/docker-entrypoint-initdb.d/03-seed-opportunities-dev.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U opzy -d opzy"]
       interval: 5s

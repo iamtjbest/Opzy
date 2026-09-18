@@ -11,6 +11,7 @@ from scripts.seed_opportunities import (
     DEFAULT_SHEET,
     DEFAULT_SQL,
     HEADERS,
+    REGIONS,
     parse_sheet,
     seed,
     to_sql,
@@ -43,6 +44,10 @@ def _row(**overrides) -> list:
         "Quality Rating": 3,
         "Verified?": "No",
         "Status": "active",
+        "Eligible Countries": "NG",
+        "Education Levels": "Graduate, postgraduate",
+        "Fields of Study": "Mathematics, Statistics",
+        "Skills": "SQL, Excel",
         "Notes": "anything",
         **overrides,
     }
@@ -68,6 +73,10 @@ def test_parses_a_row_into_table_columns(tmp_path: Path):
         "quality_rating": 3,
         "verified": False,
         "status": "active",
+        "eligible_countries": ["NG"],
+        "education_levels": ["graduate", "postgraduate"],
+        "fields_of_study": ["Mathematics", "Statistics"],
+        "skills": ["SQL", "Excel"],
     }
 
 
@@ -111,6 +120,30 @@ def test_empty_rows_are_skipped(tmp_path: Path):
     assert [r["title"] for r in rows] == ["Graduate Data Analyst", "Second"]
 
 
+def test_list_cells_are_split_trimmed_and_deduped(tmp_path: Path):
+    [row, blank] = parse_sheet(
+        _sheet(
+            tmp_path,
+            _row(Skills=" SQL , sql,Excel,, ", **{"Education Levels": "postgraduate, Graduate"}),
+            _row(Skills=None, **{"Eligible Countries": None, "Education Levels": "  ",
+                                 "Fields of Study": None}),
+        )
+    )
+
+    assert row["skills"] == ["SQL", "Excel"]
+    # Canonical EDUCATION_LEVELS order, whatever order the cell used.
+    assert row["education_levels"] == ["graduate", "postgraduate"]
+    assert (blank["skills"], blank["eligible_countries"], blank["education_levels"],
+            blank["fields_of_study"]) == ([], [], [], [])
+
+
+def test_country_codes_are_uppercased_and_regions_expand(tmp_path: Path):
+    [row] = parse_sheet(_sheet(tmp_path, _row(**{"Eligible Countries": "ecowas, ng"})))
+
+    assert row["eligible_countries"] == sorted(REGIONS["ECOWAS"])
+    assert row["eligible_countries"].count("NG") == 1
+
+
 @pytest.mark.parametrize(
     ("overrides", "message"),
     [
@@ -121,6 +154,9 @@ def test_empty_rows_are_skipped(tmp_path: Path):
         ({"Quality Rating": "five"}, "Quality Rating"),
         ({"Verified?": "maybe"}, "Verified?"),
         ({"Deadline": "next month"}, "Deadline"),
+        ({"Eligible Countries": "Nigeria"}, "Eligible Countries"),
+        ({"Eligible Countries": "XX"}, "Eligible Countries"),
+        ({"Education Levels": "University student"}, "Education Levels"),
     ],
 )
 def test_bad_values_name_the_row_and_column(tmp_path: Path, overrides: dict, message: str):
@@ -167,6 +203,38 @@ def test_sql_escapes_quotes_and_writes_nulls(tmp_path: Path):
     assert "true" in sql
 
 
+def test_sql_writes_lists_as_text_arrays(tmp_path: Path):
+    rows = parse_sheet(_sheet(tmp_path, _row(Skills=None)))
+
+    sql = to_sql(rows)
+
+    assert "array['NG']::text[]" in sql
+    assert "'{}'::text[]" in sql
+
+
+async def test_generated_sql_updates_existing_rows(tmp_path: Path, db_session: AsyncSession):
+    await db_session.execute(delete(OpportunityMatch))
+    await db_session.execute(delete(UserOpportunityAction))
+    await db_session.execute(delete(Opportunity))
+    db_session.add(
+        Opportunity(title="Graduate Data Analyst", organization="Sahel Insights",
+                    category="job", geography="old value")
+    )
+    await db_session.flush()
+    sql = to_sql(parse_sheet(_sheet(tmp_path, _row())))
+
+    conn = await db_session.connection()
+    for statement in filter(str.strip, sql.split(";\n")):
+        await conn.exec_driver_sql(statement)
+
+    db_session.expire_all()
+    [stored] = await db_session.scalars(
+        select(Opportunity).where(Opportunity.title == "Graduate Data Analyst")
+    )
+    assert stored.geography == "Abuja"
+    assert stored.eligible_countries == ["NG"]
+
+
 async def test_generated_sql_runs_and_is_idempotent(tmp_path: Path, db_session: AsyncSession):
     rows = parse_sheet(_sheet(tmp_path, _row(Title="Women's Fund", Deadline=None), _row()))
     sql = to_sql(rows)
@@ -186,7 +254,9 @@ async def test_generated_sql_runs_and_is_idempotent(tmp_path: Path, db_session: 
 # --- inserting -------------------------------------------------------------------------
 
 
-async def test_seed_inserts_new_rows_and_skips_existing(tmp_path: Path, db_session: AsyncSession):
+async def test_seed_inserts_new_rows_and_updates_changed_ones(
+    tmp_path: Path, db_session: AsyncSession
+):
     await db_session.execute(delete(OpportunityMatch))
     await db_session.execute(delete(UserOpportunityAction))
     await db_session.execute(delete(Opportunity))
@@ -195,10 +265,13 @@ async def test_seed_inserts_new_rows_and_skips_existing(tmp_path: Path, db_sessi
     )
 
     first = await seed(db_session, rows)
-    second = await seed(db_session, rows)
+    unchanged = await seed(db_session, rows)
+    changed = await seed(db_session, [{**rows[0], "skills": ["Go"]}, rows[1]])
 
-    assert (first, second) == (2, 0)
+    assert (first, unchanged, changed) == ((2, 0), (0, 0), (0, 1))
     stored = await db_session.scalars(select(Opportunity).order_by(Opportunity.title))
     [one, two] = stored
-    assert (one.title, one.deadline, one.verified) == ("One", date(2026, 11, 1), False)
+    assert (one.title, one.deadline, one.verified, one.skills) == (
+        "One", date(2026, 11, 1), False, ["Go"]
+    )
     assert (two.title, two.organization) == ("Two", None)
