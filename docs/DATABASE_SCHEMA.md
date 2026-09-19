@@ -101,16 +101,20 @@ The output of the matching logic, one row per user/opportunity pair that was sco
 
 Matches the Save/Dismiss/Mark-applied actions on the Feed, Detail, and Saved & Applications
 screens. One row per action, not one column per state, so the history isn't lost if someone
-saves, then later dismisses.
+saves, then later dismisses. A user's **current state** for an opportunity is its most
+recent row (`created_at`, then `id`). Removing a saved item writes an `unsaved` row, which
+leaves no current state.
 
 | Column | Type | Notes |
 |---|---|---|
 | id | uuid, PK | |
 | user_id | uuid, FK -> users.id | |
 | opportunity_id | uuid, FK -> opportunities.id | |
-| action | enum(saved, dismissed, applied) | |
-| dismiss_reason | text, nullable | matches the "Not for you? Tell us why" link on the detail screen |
+| action | enum(saved, unsaved, dismissed, applied) | `unsaved` added in Sprint 5 |
+| dismiss_reason | text, nullable | matches the "Not for you? Tell us why" link on the detail screen. The API only accepts `not_relevant`, `pay_too_low`, `not_eligible`, `not_interested_org`, `other` |
 | created_at | timestamp | |
+
+**Indexes:** `user_id`, `opportunity_id`, `user_id, opportunity_id, created_at` (latest action lookup)
 
 ---
 
