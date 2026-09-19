@@ -5,12 +5,12 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_, select
 
+from app.actions import current_actions
 from app.api.deps import CurrentUser, DbSession
 from app.api.routes.opportunities import MAX_PAGE_SIZE
 from app.matching.engine import UserFacts
 from app.matching.feed import build_feed
 from app.models import Opportunity, Profile, ProfileInterest, ProfileSkill
-from app.actions import current_actions
 from app.models.base import ACTIVE_STATUS, SAVED
 from app.schemas.feed import FeedItem, FeedList
 from app.schemas.opportunity import OpportunityRead

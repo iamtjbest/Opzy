@@ -222,3 +222,23 @@ async def test_another_users_actions_dont_touch_my_feed(
     assert [(i["opportunity"]["title"], i["user_action"]) for i in resp.json()["items"]] == [
         ("shared", None)
     ]
+
+
+async def test_category_filter_still_applies_alongside_actions(
+    client: AsyncClient, db_session: AsyncSession
+):
+    await _add(db_session, title="job kept")
+    dismissed_job = await _add(db_session, title="job dismissed")
+    saved_grant = await _add(db_session, title="grant saved", category="grant")
+    headers = await _onboard(client)
+    await _act(client, headers, dismissed_job, "dismissed")
+    await _act(client, headers, saved_grant, "saved")
+
+    jobs = await client.get("/feed", params={"category": "job"}, headers=headers)
+    grants = await client.get("/feed", params={"category": "grant"}, headers=headers)
+
+    assert _titles(jobs) == ["job kept"]
+    assert jobs.json()["total"] == 1
+    assert [(i["opportunity"]["title"], i["user_action"]) for i in grants.json()["items"]] == [
+        ("grant saved", "saved")
+    ]
