@@ -141,7 +141,8 @@ One profile per user, holding the onboarding fields. Both routes need
 
 ## Opportunities
 
-Read-only for now. Both routes need `Authorization: Bearer <token>`.
+Read-only; users act on opportunities through [User actions](#user-actions). Both routes
+need `Authorization: Bearer <token>`.
 
 | Endpoint | |
 |---|---|
@@ -188,9 +189,13 @@ Query: `category` (repeatable), `limit` (1–100, default 20), `offset`.
 
 ```json
 {"items": [{"opportunity": {…}, "score": 73,
-            "explanation": "Recommended because you study Computer Engineering, you know Python, and you're looking for internships. It's open to undergraduates."}],
+            "explanation": "Recommended because you study Computer Engineering, you know Python, and you're looking for internships. It's open to undergraduates.",
+            "user_action": null}],
  "total": 10, "limit": 20, "offset": 0}
 ```
+
+Opportunities the user has dismissed or applied to are left out before ranking, so `total`
+and the pages only count what's shown. Saved ones stay in, with `"user_action": "saved"`.
 
 How matching works (`app/matching/`):
 
@@ -204,6 +209,89 @@ How matching works (`app/matching/`):
 - **Ranking**: score, then soonest deadline (rolling last), then title.
 - **Explanation**: every match gets one, and it only claims eligibility that was checked.
 - Computed per request; nothing is written to `opportunity_matches` yet.
+
+## User actions
+
+Save, dismiss or mark as applied. All three routes need `Authorization: Bearer <token>`, but
+not a profile.
+
+| Endpoint | |
+|---|---|
+| `POST /opportunities/{id}/actions` | Record an action; returns the user's state for that opportunity after it. `404` if the opportunity doesn't exist or is `removed`; expired ones are fine. |
+| `GET /saved` | Opportunities the user has saved, most recently saved first. |
+| `GET /applications` | Opportunities the user has marked applied, most recent first. |
+
+```json
+POST /opportunities/{id}/actions
+{"action": "dismissed", "dismiss_reason": "not_eligible"}
+
+200
+{"opportunity_id": "…", "action": "dismissed", "dismiss_reason": "not_eligible",
+ "actioned_at": "2026-09-19T10:00:00Z"}
+```
+
+- `action` is `saved`, `unsaved` (the Saved screen's Remove), `dismissed` or `applied`.
+- `dismiss_reason` is optional and only allowed with `dismissed` (otherwise `422`). The
+  allowed codes are `not_relevant`, `pay_too_low`, `not_eligible`, `not_interested_org`
+  and `other`, one for each option in the frontend's dismiss dialog.
+- `unsaved` clears whatever state the opportunity had. The response then has `action`,
+  `dismiss_reason` and `actioned_at` all `null`.
+- Actions replace each other: the latest one is the state. So saving a dismissed opportunity
+  undoes the dismiss, and applying to a saved one moves it from Saved to Applications.
+- Repeating the current state writes nothing and returns it unchanged. That includes a
+  dismiss with no reason, which keeps the reason already given; a different reason is
+  recorded.
+
+The lists take `limit` (1–100, default 20) and `offset`, and return
+`{"items": [{"opportunity": {…}, "actioned_at": "…"}], "total", "limit", "offset"}`.
+Expired opportunities stay in them; `removed` ones don't.
+
+How it's stored: `user_opportunity_actions` is an append-only log, one row per action, so
+history is kept. The latest row per user and opportunity is the current state. That rule
+lives in one place, `latest_actions` in `app/actions.py`. Each request takes a
+per-user-and-opportunity advisory lock before reading the state, so simultaneous identical
+requests (a double-click) log one row, not two.
+
+## Notifications
+
+Users are emailed about **new strong matches**: opportunities scoring at least
+`STRONG_MATCH_SCORE` (60, in `app/notifications/run.py`) that were added after they signed
+up, that they haven't saved, dismissed or applied to, and that haven't been emailed to them
+before. `match_notifications` records every one sent.
+
+How often depends on their cadence:
+
+| Cadence | Emails |
+|---|---|
+| `instant` | on the next run after a match appears |
+| `daily` | at most one digest a day |
+| `weekly` | at most one digest a week |
+| `off` | none |
+
+Nothing is sent when there's nothing new. Each email lists up to 10 matches, best first,
+and links to the rest on the feed.
+
+`GET /settings/notifications` returns `{"cadence": "daily", "channel": "email"}`.
+`PUT /settings/notifications` with `{"cadence": "weekly"}` changes it. The channel is
+always `email` for now.
+
+Sending is a script, run on a schedule:
+
+```bash
+python -m scripts.send_notifications
+# cron, every 15 minutes:
+# */15 * * * * cd /path/to/backend && .venv/bin/python -m scripts.send_notifications
+```
+
+It's safe to re-run and to overlap: only one run works at a time. A refused email (the
+provider rejected it) is retried cleanly on the next run. A database error is handled
+differently depending on when it struck: if it happened before sending, the user is
+retried next run like a refusal; if it happened after the email had already gone out (for
+example, the commit that records it failed), the user may simply be emailed again next
+run rather than cleanly retried. Either kind of failure makes the script exit 1.
+`EMAIL_BACKEND=console` (the default) only logs emails. Set `EMAIL_BACKEND=resend`,
+`RESEND_API_KEY` and `EMAIL_FROM` to send for real, and `FRONTEND_URL` for the links.
+Deployed environments refuse to start with the console backend.
 
 ## Seeding opportunities
 
@@ -264,12 +352,18 @@ app/
   models/              SQLAlchemy models mirroring the live schema
   core/security.py     password hashing, JWT create/decode
   api/deps.py          shared dependencies (DbSession, CurrentUser)
+  matching/            feed eligibility, scoring and explanations (no DB access)
+  actions.py           a user's current state per opportunity, from the actions log
   api/routes/          one module per resource
   schemas/             request/response models
+  email.py             sending email: console backend for dev, Resend for real
+  user_facts.py        what matching knows about a user, from their profile
+  notifications/       who's due an email, what it says, and the run that sends them
 alembic/               migrations (see below)
 tests/                 pytest suite
 scripts/check_db.py    schema/connection verification
 scripts/seed_opportunities.py  load opportunities from the tracking sheet
+scripts/send_notifications.py  the scheduled job that emails new strong matches
 ```
 
 ## Things worth knowing
