@@ -221,6 +221,57 @@ async def test_a_refused_email_is_retried_next_run(client: AsyncClient, db_sessi
     assert [e.to for e in retry.sent] == [ADA]
 
 
+async def test_a_session_bound_to_an_engine_is_refused(client: AsyncClient) -> None:
+    # The run lock belongs to a connection, not a session, so a session bound to a
+    # pooled engine (as the app's normal SessionLocal is) would let the lock protect
+    # nothing. run_notifications must refuse rather than run unprotected.
+    url, connect_args, engine_kwargs = build_engine_args(_test_database_url())
+    engine = create_async_engine(url, poolclass=NullPool, connect_args=connect_args, **engine_kwargs)
+    session = AsyncSession(bind=engine, expire_on_commit=False)
+    sender = FakeSender()
+    try:
+        with pytest.raises(RuntimeError, match="single connection"):
+            await run_notifications(session, sender, NOW, TODAY, FRONTEND)
+    finally:
+        await session.close()
+        await engine.dispose()
+
+    assert sender.sent == []
+
+
+async def test_a_database_error_for_one_user_does_not_stop_the_run(
+    client: AsyncClient, db_session: AsyncSession
+):
+    await _onboard(client, ADA)
+    await _onboard(client, BOLA)
+    opportunity = await _add(db_session, "Strong", **STRONG)
+    ada_id = await db_session.scalar(select(User.id).where(User.email == ADA))
+    # _recipients() orders by (created_at, id); onboarding both in the same instant
+    # leaves their order to a coin-flip on id, so pin Ada's created_at earlier to make
+    # sure she is processed - and fails - before Bola.
+    await db_session.execute(
+        update(User).where(User.id == ada_id).values(created_at=NOW - timedelta(days=1))
+    )
+    sender = FakeSender()
+
+    # Stage a conflicting match_notifications row for Ada without flushing it, so the
+    # run's own exclusion query still offers her the opportunity as unseen (mirroring a
+    # concurrent run that recorded the same match in the gap between that query and
+    # this one's flush). The run's own flush then inserts both rows at once and the
+    # real unique index on (user_id, opportunity_id) rejects the duplicate.
+    db_session.autoflush = False
+    db_session.add(
+        MatchNotification(user_id=ada_id, opportunity_id=opportunity.id, score=100, sent_at=NOW)
+    )
+
+    result = await _run(db_session, sender)
+
+    assert (result.emailed, result.failed) == (1, 1)
+    assert await _logged(db_session, ADA) == []
+    assert await _logged(db_session, BOLA) == ["Strong"]
+    assert [e.to for e in sender.sent] == [BOLA]
+
+
 async def test_a_run_does_nothing_while_another_is_going(
     client: AsyncClient, db_session: AsyncSession
 ):

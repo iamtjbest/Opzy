@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from datetime import date, datetime
 
 from sqlalchemy import func, or_, select
+from sqlalchemy.engine import Connection as SyncConnection
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.actions import current_actions
@@ -118,6 +120,14 @@ async def run_notifications(
     `db` must be bound to one connection: the run lock is held by the connection, across
     the run's many transactions.
     """
+    if not isinstance(db.get_bind(), SyncConnection):
+        raise RuntimeError(
+            "run_notifications requires a session bound to a single connection (not an "
+            "engine): the advisory lock is held by the connection, and the run commits "
+            "once per emailed user, so a pooled/engine-bound session would let the lock "
+            "protect nothing and could leak it permanently."
+        )
+
     result = RunResult()
     key = func.hashtextextended(RUN_LOCK_KEY, 0)
     if not await db.scalar(select(func.pg_try_advisory_lock(key))):
@@ -132,11 +142,21 @@ async def run_notifications(
                 await db.rollback()
                 result.failed += 1
                 logger.exception("Couldn't email user %s; retrying next run", user.id)
+            except SQLAlchemyError:
+                await db.rollback()
+                result.failed += 1
+                logger.exception(
+                    "Database error notifying user %s; retrying next run", user.id
+                )
     except BaseException:
         # Leaves the connection usable for the unlock below.
         await db.rollback()
         raise
     finally:
-        await db.scalar(select(func.pg_advisory_unlock(key)))
+        unlocked = await db.scalar(select(func.pg_advisory_unlock(key)))
+        if not unlocked:
+            logger.error(
+                "pg_advisory_unlock did not release lock %r; it may still be held", RUN_LOCK_KEY
+            )
         await db.commit()
     return result
