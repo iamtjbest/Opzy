@@ -1,11 +1,16 @@
+import asyncio
 import uuid
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.pool import NullPool
 
+from app.actions import lock_actions
+from app.core.db import build_engine_args
 from app.models import Opportunity, UserOpportunityAction
+from tests.conftest import _test_database_url
 from tests.test_profile import auth_headers
 
 pytestmark = pytest.mark.usefixtures("empty_opportunities")
@@ -126,6 +131,47 @@ async def test_dismiss_reason_is_optional_and_a_new_reason_is_recorded(
     assert same.json() == plain.json()
     assert reasoned.json()["dismiss_reason"] == "not_eligible"
     assert await _log(db_session, opportunity) == ["dismissed", "dismissed"]
+
+
+async def test_dismissing_again_without_a_reason_keeps_the_old_one(
+    client: AsyncClient, db_session: AsyncSession
+):
+    opportunity = await _add(db_session)
+    headers = await auth_headers(client)
+
+    reasoned = await _act(client, headers, opportunity, "dismissed", dismiss_reason="not_eligible")
+    again = await _act(client, headers, opportunity, "dismissed")
+
+    assert again.status_code == 200
+    assert again.json() == reasoned.json()
+    assert await _log(db_session, opportunity) == ["dismissed"]
+
+
+async def test_actions_wait_for_a_concurrent_one_on_the_same_opportunity(
+    client: AsyncClient, db_session: AsyncSession
+):
+    # Two identical requests at once must not both see "no state" and both log a row, so
+    # each request takes a lock first. Hold that lock from another connection, as a
+    # concurrent request would, and check this request waits for it.
+    opportunity = await _add(db_session)
+    headers = await auth_headers(client)
+    user_id = uuid.UUID((await client.get("/auth/me", headers=headers)).json()["id"])
+    url, connect_args, engine_kwargs = build_engine_args(_test_database_url())
+    engine = create_async_engine(url, poolclass=NullPool, connect_args=connect_args, **engine_kwargs)
+    try:
+        async with AsyncSession(engine) as other:
+            await lock_actions(other, user_id, opportunity.id)
+            request = asyncio.create_task(_act(client, headers, opportunity, "saved"))
+            await asyncio.sleep(0.5)
+            assert not request.done()
+            await other.rollback()  # releases the lock
+
+            resp = await asyncio.wait_for(request, timeout=5)
+    finally:
+        await engine.dispose()
+
+    assert resp.status_code == 200
+    assert await _log(db_session, opportunity) == ["saved"]
 
 
 @pytest.mark.parametrize(

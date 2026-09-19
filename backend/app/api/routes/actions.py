@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
-from app.actions import current_actions, latest_actions
+from app.actions import current_actions, latest_actions, lock_actions
 from app.api.deps import CurrentUser, DbSession
 from app.api.routes.opportunities import MAX_PAGE_SIZE
 from app.models import Opportunity, UserOpportunityAction
@@ -38,14 +38,17 @@ async def act_on_opportunity(
     if opportunity is None or opportunity.status == REMOVED_STATUS:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Opportunity not found")
 
+    await lock_actions(db, user.id, opportunity_id)
     current = (await current_actions(db, user.id, [opportunity_id])).get(opportunity_id)
-    # A repeat (double-click, retry) changes nothing, so it isn't logged.
+    # A repeat (double-click, retry) changes nothing, so it isn't logged. Dismissing again
+    # without a reason is a repeat too: it keeps the reason already given.
     if body.action == UNSAVED:
         unchanged = current is None
     else:
-        unchanged = current is not None and (current.action, current.dismiss_reason) == (
-            body.action,
-            body.dismiss_reason,
+        unchanged = (
+            current is not None
+            and current.action == body.action
+            and body.dismiss_reason in (None, current.dismiss_reason)
         )
     if unchanged:
         return _state(opportunity_id, current)

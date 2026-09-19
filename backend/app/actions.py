@@ -3,11 +3,21 @@
 import uuid
 from collections.abc import Collection
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import UserOpportunityAction
 from app.models.base import UNSAVED
+
+
+async def lock_actions(db: AsyncSession, user_id: uuid.UUID, opportunity_id: uuid.UUID) -> None:
+    """Hold off other actions by this user on this opportunity until the transaction ends.
+
+    Taken before reading the current state, so two identical requests at once can't both
+    see "no state" and both write a row.
+    """
+    key = func.hashtextextended(f"user_opportunity_actions:{user_id}:{opportunity_id}", 0)
+    await db.execute(select(func.pg_advisory_xact_lock(key)))
 
 
 def latest_actions(user_id: uuid.UUID) -> Select[tuple[UserOpportunityAction]]:
