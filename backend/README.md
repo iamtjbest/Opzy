@@ -252,6 +252,43 @@ lives in one place, `latest_actions` in `app/actions.py`. Each request takes a
 per-user-and-opportunity advisory lock before reading the state, so simultaneous identical
 requests (a double-click) log one row, not two.
 
+## Notifications
+
+Users are emailed about **new strong matches**: opportunities scoring at least
+`STRONG_MATCH_SCORE` (60, in `app/notifications/run.py`) that were added after they signed
+up, that they haven't saved, dismissed or applied to, and that haven't been emailed to them
+before. `match_notifications` records every one sent.
+
+How often depends on their cadence:
+
+| Cadence | Emails |
+|---|---|
+| `instant` | on the next run after a match appears |
+| `daily` | at most one digest a day |
+| `weekly` | at most one digest a week |
+| `off` | none |
+
+Nothing is sent when there's nothing new. Each email lists up to 10 matches, best first,
+and links to the rest on the feed.
+
+`GET /settings/notifications` returns `{"cadence": "daily", "channel": "email"}`.
+`PUT /settings/notifications` with `{"cadence": "weekly"}` changes it. The channel is
+always `email` for now.
+
+Sending is a script, run on a schedule:
+
+```bash
+python -m scripts.send_notifications
+# cron, every 15 minutes:
+# */15 * * * * cd /path/to/backend && .venv/bin/python -m scripts.send_notifications
+```
+
+It's safe to re-run and to overlap: only one run works at a time, and a refused email is
+retried on the next run (the script then exits 1). `EMAIL_BACKEND=console` (the default)
+only logs emails. Set `EMAIL_BACKEND=resend`, `RESEND_API_KEY` and `EMAIL_FROM` to send for
+real, and `FRONTEND_URL` for the links. Deployed environments refuse to start with the
+console backend.
+
 ## Seeding opportunities
 
 Opportunities are entered by hand in
@@ -315,10 +352,14 @@ app/
   actions.py           a user's current state per opportunity, from the actions log
   api/routes/          one module per resource
   schemas/             request/response models
+  email.py             sending email: console backend for dev, Resend for real
+  user_facts.py        what matching knows about a user, from their profile
+  notifications/       who's due an email, what it says, and the run that sends them
 alembic/               migrations (see below)
 tests/                 pytest suite
 scripts/check_db.py    schema/connection verification
 scripts/seed_opportunities.py  load opportunities from the tracking sheet
+scripts/send_notifications.py  the scheduled job that emails new strong matches
 ```
 
 ## Things worth knowing
