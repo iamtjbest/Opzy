@@ -173,3 +173,105 @@ async def test_expired_opportunity_can_be_acted_on(
 
     assert resp.status_code == 200
     assert resp.json()["action"] == "applied"
+
+
+def _titles(resp) -> list[str]:
+    return [item["opportunity"]["title"] for item in resp.json()["items"]]
+
+
+async def test_lists_require_auth(client: AsyncClient):
+    assert (await client.get("/saved")).status_code == 401
+    assert (await client.get("/applications")).status_code == 401
+
+
+async def test_lists_hold_current_state_only(client: AsyncClient, db_session: AsyncSession):
+    saved = await _add(db_session, title="saved")
+    applied = await _add(db_session, title="saved then applied")
+    dismissed = await _add(db_session, title="dismissed")
+    unsaved = await _add(db_session, title="saved then unsaved")
+    headers = await auth_headers(client)
+    for opportunity, actions in [
+        (saved, ["saved"]),
+        (applied, ["saved", "applied"]),
+        (dismissed, ["dismissed"]),
+        (unsaved, ["saved", "unsaved"]),
+    ]:
+        for action in actions:
+            assert (await _act(client, headers, opportunity, action)).status_code == 200
+
+    saved_resp = await client.get("/saved", headers=headers)
+    applied_resp = await client.get("/applications", headers=headers)
+
+    assert _titles(saved_resp) == ["saved"]
+    assert _titles(applied_resp) == ["saved then applied"]
+
+
+async def test_list_items_carry_when_they_were_actioned(
+    client: AsyncClient, db_session: AsyncSession
+):
+    opportunity = await _add(db_session)
+    headers = await auth_headers(client)
+    posted = await _act(client, headers, opportunity, "saved")
+
+    [item] = (await client.get("/saved", headers=headers)).json()["items"]
+
+    assert item["actioned_at"] == posted.json()["actioned_at"]
+    assert item["opportunity"]["id"] == str(opportunity.id)
+
+
+async def test_lists_are_newest_first_and_paginate(
+    client: AsyncClient, db_session: AsyncSession
+):
+    headers = await auth_headers(client)
+    for title in ["first", "second", "third"]:
+        await _act(client, headers, await _add(db_session, title=title), "saved")
+
+    page1 = await client.get("/saved", params={"limit": 2}, headers=headers)
+    page2 = await client.get("/saved", params={"limit": 2, "offset": 2}, headers=headers)
+
+    assert _titles(page1) == ["third", "second"]
+    assert _titles(page2) == ["first"]
+    assert (page1.json()["total"], page1.json()["limit"], page1.json()["offset"]) == (3, 2, 0)
+
+
+async def test_lists_keep_expired_and_drop_removed(
+    client: AsyncClient, db_session: AsyncSession
+):
+    expired = await _add(db_session, title="expired", status="expired")
+    later_removed = await _add(db_session, title="later removed")
+    headers = await auth_headers(client)
+    await _act(client, headers, expired, "applied")
+    await _act(client, headers, later_removed, "applied")
+    later_removed.status = "removed"
+    await db_session.flush()
+
+    resp = await client.get("/applications", headers=headers)
+
+    assert _titles(resp) == ["expired"]
+    assert resp.json()["total"] == 1
+
+
+async def test_lists_are_empty_before_any_action_or_profile(client: AsyncClient):
+    headers = await auth_headers(client)
+
+    resp = await client.get("/saved", headers=headers)
+
+    assert resp.status_code == 200
+    assert resp.json() == {"items": [], "total": 0, "limit": 20, "offset": 0}
+
+
+async def test_lists_are_per_user(client: AsyncClient, db_session: AsyncSession):
+    opportunity = await _add(db_session)
+    ada = await auth_headers(client)
+    bea = await auth_headers(client, "bea@example.com")
+    await _act(client, ada, opportunity, "saved")
+
+    assert _titles(await client.get("/saved", headers=bea)) == []
+    assert _titles(await client.get("/saved", headers=ada)) == ["Untitled"]
+
+
+@pytest.mark.parametrize("params", [{"limit": 0}, {"limit": 101}, {"offset": -1}])
+async def test_list_pagination_bounds(client: AsyncClient, params: dict):
+    headers = await auth_headers(client)
+
+    assert (await client.get("/saved", params=params, headers=headers)).status_code == 422
