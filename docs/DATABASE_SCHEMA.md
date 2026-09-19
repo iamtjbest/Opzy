@@ -15,7 +15,7 @@ exactly with no translation step needed. Works on Postgres regardless of host
 | email | text, unique | |
 | password_hash | text | |
 | created_at | timestamp | |
-| notification_cadence | enum(instant, daily, weekly) | matches Settings screen, default 'daily' |
+| notification_cadence | enum(instant, daily, weekly, off) | matches Settings screen, default 'daily'; 'off' sends no emails |
 | notification_channel | enum(email, whatsapp) | default 'email' |
 
 ## profiles
@@ -96,6 +96,21 @@ The output of the matching logic, one row per user/opportunity pair that was sco
 | match_score | integer (0-100) | matches the "92% match" badge shown in the feed |
 | match_reasons | text[] | short phrases, matches the reason chips shown in the feed and detail screen |
 | created_at | timestamp | |
+
+## match_notifications
+
+One row per opportunity emailed to a user as a new strong match (Sprint 6). The unique
+index on (user_id, opportunity_id) means a match is never emailed twice. The user's latest
+`sent_at` is when they were last emailed, which is what daily and weekly digests are
+timed from.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid, PK | |
+| user_id | uuid, FK -> users.id | cascade delete |
+| opportunity_id | uuid, FK -> opportunities.id | cascade delete |
+| score | integer | the match score when it was emailed |
+| sent_at | timestamp | when the email went out |
 
 ## user_opportunity_actions
 

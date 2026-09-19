@@ -8,8 +8,12 @@ class Base(DeclarativeBase):
 # The live schema stores these as `text` with CHECK constraints rather than native
 # Postgres enum types, so they are plain strings here. Single-sourced because the
 # matching engine and the request schemas both need to validate against them.
-NOTIFICATION_CADENCES = ("instant", "daily", "weekly")
+# "off" means no emails at all.
+NOTIFICATION_CADENCES = ("instant", "daily", "weekly", "off")
+INSTANT, DAILY, WEEKLY, OFF = NOTIFICATION_CADENCES
 NOTIFICATION_CHANNELS = ("email", "whatsapp")
+# WhatsApp is deferred, so this is the only channel anything is sent on.
+EMAIL_CHANNEL = NOTIFICATION_CHANNELS[0]
 OPPORTUNITY_TYPES = (
     "job",
     "internship",
