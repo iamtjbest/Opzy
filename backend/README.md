@@ -283,11 +283,15 @@ python -m scripts.send_notifications
 # */15 * * * * cd /path/to/backend && .venv/bin/python -m scripts.send_notifications
 ```
 
-It's safe to re-run and to overlap: only one run works at a time, and a refused email is
-retried on the next run (the script then exits 1). `EMAIL_BACKEND=console` (the default)
-only logs emails. Set `EMAIL_BACKEND=resend`, `RESEND_API_KEY` and `EMAIL_FROM` to send for
-real, and `FRONTEND_URL` for the links. Deployed environments refuse to start with the
-console backend.
+It's safe to re-run and to overlap: only one run works at a time. A refused email (the
+provider rejected it) is retried cleanly on the next run. A database error is handled
+differently depending on when it struck: if it happened before sending, the user is
+retried next run like a refusal; if it happened after the email had already gone out (for
+example, the commit that records it failed), the user may simply be emailed again next
+run rather than cleanly retried. Either kind of failure makes the script exit 1.
+`EMAIL_BACKEND=console` (the default) only logs emails. Set `EMAIL_BACKEND=resend`,
+`RESEND_API_KEY` and `EMAIL_FROM` to send for real, and `FRONTEND_URL` for the links.
+Deployed environments refuse to start with the console backend.
 
 ## Seeding opportunities
 

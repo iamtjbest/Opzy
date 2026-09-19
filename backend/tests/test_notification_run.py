@@ -3,6 +3,7 @@ from datetime import UTC, date, datetime, timedelta
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import func, select, update
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -86,7 +87,7 @@ async def test_new_strong_matches_are_emailed_and_recorded(
 
     result = await _run(db_session, sender)
 
-    assert (result.emailed, result.failed, result.locked) == (1, 0, False)
+    assert (result.emailed, result.refused, result.errored, result.locked) == (1, 0, 0, False)
     [email] = sender.sent
     assert (email.to, email.subject) == (ADA, "New match: Strong")
     assert "Weak" not in email.text
@@ -211,7 +212,7 @@ async def test_a_refused_email_is_retried_next_run(client: AsyncClient, db_sessi
 
     result = await _run(db_session, FakeSender(refuse=(ADA,)))
 
-    assert (result.emailed, result.failed) == (1, 1)
+    assert (result.emailed, result.refused, result.errored) == (1, 1, 0)
     assert await _logged(db_session, ADA) == []
     assert await _logged(db_session, BOLA) == ["Strong"]
 
@@ -266,10 +267,42 @@ async def test_a_database_error_for_one_user_does_not_stop_the_run(
 
     result = await _run(db_session, sender)
 
-    assert (result.emailed, result.failed) == (1, 1)
+    assert (result.emailed, result.refused, result.errored) == (1, 0, 1)
     assert await _logged(db_session, ADA) == []
     assert await _logged(db_session, BOLA) == ["Strong"]
     assert [e.to for e in sender.sent] == [BOLA]
+
+
+async def test_a_commit_failure_after_sending_counts_as_already_sent(
+    client: AsyncClient, db_session: AsyncSession
+):
+    # A commit failing only after the real send has happened (e.g. a dropped connection)
+    # is impractical to provoke honestly here, so this patches AsyncSession.commit to
+    # fail exactly once, right when _notify calls it post-send. Everything else in the
+    # run - the query, the insert, the flush, the send itself - happens for real.
+    await _onboard(client)
+    await _add(db_session, "Strong", **STRONG)
+    sender = FakeSender()
+
+    real_commit = db_session.commit
+    calls = 0
+
+    async def flaky_commit() -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise SQLAlchemyError("connection reset")
+        await real_commit()
+
+    db_session.commit = flaky_commit
+
+    result = await _run(db_session, sender)
+
+    assert (result.emailed, result.refused, result.errored) == (0, 0, 1)
+    # The email went out even though the commit that would have recorded it failed, so
+    # it's unrecorded and the run may email this user again next time.
+    assert [e.to for e in sender.sent] == [ADA]
+    assert await _logged(db_session, ADA) == []
 
 
 async def test_a_run_does_nothing_while_another_is_going(

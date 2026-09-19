@@ -40,8 +40,15 @@ class Recipient:
 @dataclass
 class RunResult:
     emailed: int = 0  # users emailed
-    failed: int = 0  # users whose email was refused; they're retried next run
+    refused: int = 0  # users whose email was refused before sending; retried next run
+    errored: int = 0  # users hit a database error; if it happened after sending, they
+    # may be emailed again next run instead of being retried cleanly
     locked: bool = False  # another run was going, so this one did nothing
+
+    @property
+    def failed(self) -> int:
+        """Total users not cleanly handled, for a quick pass/fail check."""
+        return self.refused + self.errored
 
 
 async def new_strong_matches(db: AsyncSession, user: Recipient, today: date) -> list[Match]:
@@ -80,6 +87,13 @@ async def _recipients(db: AsyncSession) -> list[Recipient]:
     return [Recipient(*row) for row in rows]
 
 
+@dataclass
+class _Attempt:
+    """Tracks, for one user's notify attempt, whether the email already went out."""
+
+    sent: bool = False
+
+
 async def _notify(
     db: AsyncSession,
     sender: EmailSender,
@@ -87,6 +101,7 @@ async def _notify(
     now: datetime,
     today: date,
     frontend_url: str,
+    attempt: _Attempt,
 ) -> bool:
     """Email the user their new strong matches if they're due. True if an email went out."""
     last_sent = await db.scalar(
@@ -108,6 +123,7 @@ async def _notify(
     )
     await db.flush()
     await sender.send(compose_match_email(user.email, matches, user.cadence, frontend_url))
+    attempt.sent = True
     await db.commit()
     return True
 
@@ -135,28 +151,48 @@ async def run_notifications(
         return result
     try:
         for user in await _recipients(db):
+            attempt = _Attempt()
             try:
-                if await _notify(db, sender, user, now, today, frontend_url):
+                if await _notify(db, sender, user, now, today, frontend_url, attempt):
                     result.emailed += 1
             except EmailError:
                 await db.rollback()
-                result.failed += 1
+                result.refused += 1
                 logger.exception("Couldn't email user %s; retrying next run", user.id)
             except SQLAlchemyError:
                 await db.rollback()
-                result.failed += 1
-                logger.exception(
-                    "Database error notifying user %s; retrying next run", user.id
-                )
+                result.errored += 1
+                if attempt.sent:
+                    logger.exception(
+                        "Emailed user %s but a database error followed; they may be "
+                        "emailed again next run",
+                        user.id,
+                    )
+                else:
+                    logger.exception(
+                        "Database error notifying user %s; retrying next run", user.id
+                    )
     except BaseException:
         # Leaves the connection usable for the unlock below.
         await db.rollback()
         raise
     finally:
-        unlocked = await db.scalar(select(func.pg_advisory_unlock(key)))
-        if not unlocked:
-            logger.error(
-                "pg_advisory_unlock did not release lock %r; it may still be held", RUN_LOCK_KEY
+        # A failure releasing the lock or committing here must never replace an
+        # exception already propagating from the loop above - just log it.
+        try:
+            unlocked = await db.scalar(select(func.pg_advisory_unlock(key)))
+        except Exception:
+            logger.exception(
+                "Couldn't release run lock %r; it may still be held", RUN_LOCK_KEY
             )
-        await db.commit()
+        else:
+            if not unlocked:
+                logger.error(
+                    "pg_advisory_unlock did not release lock %r; it may still be held",
+                    RUN_LOCK_KEY,
+                )
+        try:
+            await db.commit()
+        except Exception:
+            logger.exception("Couldn't commit after the notification run")
     return result

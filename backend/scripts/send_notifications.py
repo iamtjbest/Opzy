@@ -50,7 +50,12 @@ def main() -> None:
     if result.locked:
         print("Another run is in progress; nothing done.")
         return
-    print(f"Emailed {result.emailed} user(s); {result.failed} refused, retried next run.")
+    summary = [f"Emailed {result.emailed} user(s)"]
+    if result.refused:
+        summary.append(f"{result.refused} refused, retried next run")
+    if result.errored:
+        summary.append(f"{result.errored} hit a database error, may be retried or re-emailed")
+    print("; ".join(summary) + ".")
     if result.failed:
         sys.exit(1)
 
