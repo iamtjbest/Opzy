@@ -1,8 +1,36 @@
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Input from "@/components/Input";
 import Button from "@/components/Button";
+import { api, setToken, ApiError } from "@/lib/api";
 
 export default function LogIn() {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    try {
+      const { access_token } = await api.login(email, password);
+      setToken(access_token);
+      router.push("/feed");
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        setError("Incorrect email or password.");
+      } else {
+        setError("Couldn't reach the server. Is the backend running?");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-neutral-mist px-4 py-16">
       <div className="w-full max-w-[440px] rounded-2xl border border-neutral-border bg-white p-8">
@@ -13,8 +41,18 @@ export default function LogIn() {
           <h1 className="text-2xl font-bold text-primary-navy">Welcome back</h1>
           <p className="text-sm text-neutral-slate">Log in to see what&rsquo;s new.</p>
         </div>
-        <form className="flex flex-col gap-5">
-          <Input label="Email" placeholder="you@example.com" type="email" />
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <label className="flex flex-col gap-2">
+            <span className="text-[13px] font-bold text-neutral-ink">Email</span>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="w-full rounded-lg border border-neutral-border bg-white px-3.5 py-3 text-sm text-neutral-ink placeholder:text-neutral-slate focus:border-primary-blue focus:outline-none"
+            />
+          </label>
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <span className="text-[13px] font-bold text-neutral-ink">Password</span>
@@ -24,12 +62,16 @@ export default function LogIn() {
             </div>
             <input
               type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               className="w-full rounded-lg border border-neutral-border bg-white px-3.5 py-3 text-sm text-neutral-ink placeholder:text-neutral-slate focus:border-primary-blue focus:outline-none"
             />
           </div>
-          <Button type="submit" href="/feed" className="mt-1 w-full">
-            Log in
+          {error && <p className="text-[13px] text-danger-red">{error}</p>}
+          <Button type="submit" className="mt-1 w-full">
+            {loading ? "Logging in..." : "Log in"}
           </Button>
         </form>
         <p className="mt-5 text-center text-[13px] text-neutral-slate">
