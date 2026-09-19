@@ -149,3 +149,76 @@ async def test_feed_on_the_seeded_sheet(client: AsyncClient, db_session: AsyncSe
         "Shown because it's open to undergraduates from Nigeria, though it doesn't match your "
         "field, skills or interests."
     )
+
+
+async def _act(client: AsyncClient, headers: dict, opportunity: Opportunity, action: str):
+    resp = await client.post(
+        f"/opportunities/{opportunity.id}/actions", json={"action": action}, headers=headers
+    )
+    assert resp.status_code == 200
+
+
+async def test_feed_hides_dismissed_and_applied_and_flags_saved(
+    client: AsyncClient, db_session: AsyncSession
+):
+    await _add(db_session, title="untouched")
+    saved = await _add(db_session, title="saved")
+    dismissed = await _add(db_session, title="dismissed")
+    applied = await _add(db_session, title="applied")
+    headers = await _onboard(client)
+    await _act(client, headers, saved, "saved")
+    await _act(client, headers, dismissed, "dismissed")
+    await _act(client, headers, applied, "applied")
+
+    resp = await client.get("/feed", headers=headers)
+
+    body = resp.json()
+    assert body["total"] == 2
+    assert {i["opportunity"]["title"]: i["user_action"] for i in body["items"]} == {
+        "untouched": None,
+        "saved": "saved",
+    }
+
+
+async def test_feed_total_and_pages_count_only_shown_items(
+    client: AsyncClient, db_session: AsyncSession
+):
+    first = await _add(db_session, title="a", deadline=date(2026, 10, 1))
+    await _add(db_session, title="b", deadline=date(2026, 10, 2))
+    await _add(db_session, title="c", deadline=date(2026, 10, 3))
+    headers = await _onboard(client)
+    await _act(client, headers, first, "dismissed")
+
+    resp = await client.get("/feed", params={"limit": 1, "offset": 1}, headers=headers)
+
+    assert _titles(resp) == ["c"]
+    assert resp.json()["total"] == 2
+
+
+async def test_undoing_a_dismiss_brings_it_back(client: AsyncClient, db_session: AsyncSession):
+    opportunity = await _add(db_session, title="second thoughts")
+    headers = await _onboard(client)
+    await _act(client, headers, opportunity, "dismissed")
+    await _act(client, headers, opportunity, "saved")
+
+    resp = await client.get("/feed", headers=headers)
+
+    assert [(i["opportunity"]["title"], i["user_action"]) for i in resp.json()["items"]] == [
+        ("second thoughts", "saved")
+    ]
+
+
+async def test_another_users_actions_dont_touch_my_feed(
+    client: AsyncClient, db_session: AsyncSession
+):
+    opportunity = await _add(db_session, title="shared")
+    ada = await _onboard(client)
+    bea = await auth_headers(client, "bea@example.com")
+    assert (await client.put("/profile", json=ONBOARDING, headers=bea)).status_code == 200
+    await _act(client, ada, opportunity, "dismissed")
+
+    resp = await client.get("/feed", headers=bea)
+
+    assert [(i["opportunity"]["title"], i["user_action"]) for i in resp.json()["items"]] == [
+        ("shared", None)
+    ]

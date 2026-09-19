@@ -10,7 +10,8 @@ from app.api.routes.opportunities import MAX_PAGE_SIZE
 from app.matching.engine import UserFacts
 from app.matching.feed import build_feed
 from app.models import Opportunity, Profile, ProfileInterest, ProfileSkill
-from app.models.base import ACTIVE_STATUS
+from app.actions import current_actions
+from app.models.base import ACTIVE_STATUS, SAVED
 from app.schemas.feed import FeedItem, FeedList
 from app.schemas.opportunity import OpportunityRead
 from app.schemas.profile import OpportunityType
@@ -59,6 +60,13 @@ async def get_feed(
         filters.append(Opportunity.category.in_(category))
     opportunities = list(await db.scalars(select(Opportunity).where(*filters)))
 
+    # Dismissed and applied ones aren't recommendations any more. Drop them before ranking
+    # so `total` and the pages only count what's shown. Saved ones stay, flagged.
+    actions = await current_actions(db, user.id, [o.id for o in opportunities])
+    opportunities = [
+        o for o in opportunities if o.id not in actions or actions[o.id].action == SAVED
+    ]
+
     # Ranked and paginated in memory: fine at tens or hundreds of opportunities. Revisit
     # (store scores in opportunity_matches) once that stops being true.
     matches = build_feed(facts, opportunities, today)
@@ -68,6 +76,7 @@ async def get_feed(
                 opportunity=OpportunityRead.model_validate(m.opportunity),
                 score=m.score,
                 explanation=m.explanation,
+                user_action=SAVED if m.opportunity.id in actions else None,
             )
             for m in matches[offset : offset + limit]
         ],
