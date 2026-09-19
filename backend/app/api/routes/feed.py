@@ -8,13 +8,13 @@ from sqlalchemy import or_, select
 from app.actions import current_actions
 from app.api.deps import CurrentUser, DbSession
 from app.api.routes.opportunities import MAX_PAGE_SIZE
-from app.matching.engine import UserFacts
 from app.matching.feed import build_feed
-from app.models import Opportunity, Profile, ProfileInterest, ProfileSkill
+from app.models import Opportunity
 from app.models.base import ACTIVE_STATUS, SAVED
 from app.schemas.feed import FeedItem, FeedList
 from app.schemas.opportunity import OpportunityRead
 from app.schemas.profile import OpportunityType
+from app.user_facts import load_user_facts
 
 # Deadlines are Nigerian dates: one stays open through that whole day in Lagos.
 DEADLINE_TIMEZONE = ZoneInfo("Africa/Lagos")
@@ -35,21 +35,10 @@ async def get_feed(
     limit: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> FeedList:
-    profile = await db.scalar(select(Profile).where(Profile.user_id == user.id))
-    if profile is None:
+    facts = await load_user_facts(db, user.id)
+    if facts is None:
         # Not onboarded yet; same signal as GET /profile.
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
-    skills = await db.scalars(select(ProfileSkill.skill).where(ProfileSkill.profile_id == profile.id))
-    interests = await db.scalars(
-        select(ProfileInterest.opportunity_type).where(ProfileInterest.profile_id == profile.id)
-    )
-    facts = UserFacts(
-        nationality=profile.nationality,
-        education_level=profile.education_level,
-        field_of_study=profile.field_of_study,
-        skills=frozenset(skills),
-        interests=frozenset(interests),
-    )
 
     # Cheap filters in SQL; the matching engine applies the rest (and re-checks these).
     filters = [
