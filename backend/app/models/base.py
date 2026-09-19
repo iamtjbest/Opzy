@@ -1,0 +1,29 @@
+from sqlalchemy.orm import DeclarativeBase
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+# The live schema stores these as `text` with CHECK constraints rather than native
+# Postgres enum types, so they are plain strings here. Single-sourced because the
+# matching engine and the request schemas both need to validate against them.
+NOTIFICATION_CADENCES = ("instant", "daily", "weekly")
+NOTIFICATION_CHANNELS = ("email", "whatsapp")
+OPPORTUNITY_TYPES = (
+    "job",
+    "internship",
+    "scholarship",
+    "fellowship",
+    "grant",
+    "hackathon",
+    "competition",
+)
+OPPORTUNITY_STATUSES = ("active", "expired", "removed")
+# The one status users ever see in listings and the feed.
+ACTIVE_STATUS = OPPORTUNITY_STATUSES[0]
+USER_ACTIONS = ("saved", "dismissed", "applied")
+
+# Profile education level, and what an opportunity accepts. "graduate" means a first degree
+# or HND and not studying now; "postgraduate" means a master's or PhD student or holder.
+EDUCATION_LEVELS = ("secondary", "undergraduate", "graduate", "postgraduate")

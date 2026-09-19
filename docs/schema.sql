@@ -91,6 +91,7 @@ create table user_opportunity_actions (
 create index user_opportunity_actions_user_id_idx on user_opportunity_actions(user_id);
 create index user_opportunity_actions_opportunity_id_idx on user_opportunity_actions(opportunity_id);
 
--- Row Level Security: on by default in Supabase once enabled.
--- Enable + add policies once auth is wired up, so this doesn't silently expose data.
--- Left off here on purpose rather than guessing policies before real auth exists.
+-- Row Level Security is not enabled here. The backend migration
+-- 2d6c5e3b3a6b (backend/alembic/versions/) enables it on every table with no policies,
+-- which blocks Supabase's REST API roles while the table-owning backend role is unaffected.
+-- Run `alembic upgrade head` after applying this file.
