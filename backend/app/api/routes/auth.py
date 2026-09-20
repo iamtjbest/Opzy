@@ -1,3 +1,5 @@
+import logging
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -5,8 +7,15 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.api.deps import CurrentUser, DbSession, Limiter
-from app.core.rate_limit import LOGIN_PER_EMAIL, LOGIN_PER_IP, SIGNUP_PER_IP
+from app.api.deps import CurrentUser, DbSession, EmailSenderDep, Limiter
+from app.core.config import get_settings
+from app.core.rate_limit import (
+    LOGIN_PER_EMAIL,
+    LOGIN_PER_IP,
+    RESET_REQUEST_PER_EMAIL,
+    RESET_REQUEST_PER_IP,
+    SIGNUP_PER_IP,
+)
 from app.core.security import (
     MAX_PASSWORD_LENGTH,
     burn_password_check,
@@ -14,8 +23,11 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
+from app.email import EmailError
 from app.models import User
+from app.password_reset import compose_password_reset_email, issue_reset_token
 from app.schemas.auth import (
+    PasswordResetRequest,
     SignupRequest,
     SignupResponse,
     TokenResponse,
@@ -25,7 +37,13 @@ from app.schemas.auth import (
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+logger = logging.getLogger(__name__)
+
 UNIQUE_VIOLATION = "23505"  # Postgres SQLSTATE
+
+# Returned whether or not the address has an account, so the endpoint can't be used to
+# find out which emails are registered.
+RESET_REQUESTED = {"detail": "If that email has an account, a reset link is on its way."}
 
 
 @router.post("/signup", status_code=status.HTTP_201_CREATED, response_model=SignupResponse)
@@ -95,3 +113,28 @@ async def login(
 @router.get("/me", response_model=UserRead)
 async def me(user: CurrentUser) -> User:
     return user
+
+
+@router.post("/password-reset/request", status_code=status.HTTP_202_ACCEPTED)
+async def request_password_reset(
+    body: PasswordResetRequest, db: DbSession, limiter: Limiter, sender: EmailSenderDep
+) -> dict:
+    await limiter.enforce("reset-request", RESET_REQUEST_PER_IP)
+    await limiter.enforce(
+        "reset-request", RESET_REQUEST_PER_EMAIL, kind="email", value=body.email
+    )
+
+    user = await db.scalar(select(User).where(User.email == body.email))
+    if user is not None:
+        token = await issue_reset_token(db, user, now=datetime.now(UTC))
+        message = compose_password_reset_email(
+            user.email, token, get_settings().frontend_url
+        )
+        try:
+            await sender.send(message)
+        except EmailError:
+            # Never surfaced: a failed send must not make this response differ from the
+            # unknown-email one. The user can ask again.
+            logger.exception("Couldn't send a password reset email")
+
+    return RESET_REQUESTED
