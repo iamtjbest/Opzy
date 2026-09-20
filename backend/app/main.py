@@ -1,18 +1,24 @@
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import actions, auth, feed, health, notification_settings, opportunities, profile
 from app.core.config import get_settings
 from app.core.db import engine
+from app.email import EMAIL_TIMEOUT_SECONDS
 
 settings = get_settings()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    yield
+    # One client for the app's lifetime: connection reuse, and somewhere for the email
+    # backend to live that isn't rebuilt per request.
+    async with httpx.AsyncClient(timeout=EMAIL_TIMEOUT_SECONDS) as http:
+        app.state.http = http
+        yield
     await engine.dispose()
 
 

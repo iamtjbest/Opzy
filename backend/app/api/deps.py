@@ -12,6 +12,7 @@ from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.rate_limit import RateLimiter, client_ip
 from app.core.security import decode_access_token_claims
+from app.email import EmailSender, get_email_sender
 from app.models import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -57,3 +58,10 @@ async def get_current_user(
 
 # Use this on any route that needs a logged-in user: `def route(user: CurrentUser): ...`
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+def get_sender(request: Request) -> EmailSender:
+    return get_email_sender(get_settings(), request.app.state.http)
+
+
+EmailSenderDep = Annotated[EmailSender, Depends(get_sender)]

@@ -8,8 +8,10 @@ from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
+from app.api.deps import get_sender
 from app.core.config import get_settings
 from app.core.db import build_engine_args, get_db
+from app.email import EmailMessage
 from app.main import app
 from app.models import (
     Opportunity,
@@ -40,6 +42,21 @@ def _test_database_url() -> str:
     return url
 
 
+class FakeSender:
+    """Collects emails instead of sending them."""
+
+    def __init__(self) -> None:
+        self.sent: list[EmailMessage] = []
+
+    async def send(self, message: EmailMessage) -> None:
+        self.sent.append(message)
+
+
+@pytest.fixture
+async def fake_sender() -> FakeSender:
+    return FakeSender()
+
+
 @pytest.fixture
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
     # A fresh engine per test: asyncpg connections are bound to the event loop that opened
@@ -66,11 +83,16 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 @pytest.fixture
-async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
+async def client(
+    db_session: AsyncSession, fake_sender: FakeSender
+) -> AsyncGenerator[AsyncClient, None]:
     async def _override_get_db() -> AsyncGenerator[AsyncSession, None]:
         yield db_session
 
     app.dependency_overrides[get_db] = _override_get_db
+    # The app's httpx client is created in `lifespan`, which ASGITransport doesn't run, so
+    # routes that send email get this instead.
+    app.dependency_overrides[get_sender] = lambda: fake_sender
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
             yield c
