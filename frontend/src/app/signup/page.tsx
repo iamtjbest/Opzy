@@ -1,6 +1,6 @@
 import Link from "next/link";
-import Input from "@/components/Input";
-import Button from "@/components/Button";
+
+import SignupForm from "@/components/SignupForm";
 
 export default function SignUp() {
   return (
@@ -15,13 +15,7 @@ export default function SignUp() {
             Start seeing opportunities that actually fit you.
           </p>
         </div>
-        <form className="flex flex-col gap-5">
-          <Input label="Email" placeholder="you@example.com" type="email" />
-          <Input label="Password" placeholder="••••••••" type="password" />
-          <Button type="submit" href="/onboarding" className="mt-1 w-full">
-            Create account
-          </Button>
-        </form>
+        <SignupForm />
         <p className="mt-5 text-center text-[13px] text-neutral-slate">
           Already have an account?{" "}
           <Link href="/login" className="font-bold text-primary-blue">
