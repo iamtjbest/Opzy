@@ -65,7 +65,15 @@ describe("apiFetch", () => {
       }),
     );
 
-    const error = await apiFetch("/profile").catch((e) => e as InstanceType<typeof ApiError>);
+    let caught: unknown;
+    try {
+      await apiFetch("/profile");
+    } catch (e) {
+      caught = e;
+    }
+
+    expect(caught).toBeInstanceOf(ApiError);
+    const error = caught as InstanceType<typeof ApiError>;
     expect(error.status).toBe(422);
     expect(error.fields).toEqual({
       nationality: "must be an ISO 3166 two-letter country code",
