@@ -5,7 +5,8 @@ import ActionButtons from "@/components/ActionButtons";
 import AppNav from "@/components/AppNav";
 import { ApiError, apiFetch } from "@/lib/api/server";
 import type { ActionList, Opportunity } from "@/lib/api/types";
-import { CATEGORY_LABELS, countryName, deadlineLabel, lagosToday } from "@/lib/format";
+import { countryName } from "@/lib/countries";
+import { CATEGORY_LABELS, deadlineLabel, lagosToday } from "@/lib/format";
 
 // There is no single-item state endpoint, so state comes from the two lists. Past this
 // many, a saved item shows as unsaved — pressing Save again is a no-op on the backend,

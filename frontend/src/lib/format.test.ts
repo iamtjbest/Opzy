@@ -4,7 +4,6 @@ import {
   CATEGORY_LABELS,
   DISMISS_REASONS,
   OPPORTUNITY_TYPES,
-  countryName,
   deadlineLabel,
   lagosToday,
 } from "@/lib/format";
@@ -76,12 +75,5 @@ describe("CADENCES", () => {
 describe("CATEGORY_LABELS", () => {
   it("labels every opportunity type, with none left over", () => {
     expect(Object.keys(CATEGORY_LABELS).sort()).toEqual([...OPPORTUNITY_TYPES].sort());
-  });
-});
-
-describe("countryName", () => {
-  it("names a code, and falls back to the code when it can't", () => {
-    expect(countryName("NG")).toBe("Nigeria");
-    expect(countryName("ZZZZ")).toBe("ZZZZ");
   });
 });

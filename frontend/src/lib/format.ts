@@ -80,12 +80,6 @@ export function deadlineLabel(deadline: string | null, today: string): string {
   return `Closes in ${days} days`;
 }
 
-/** "NG" → "Nigeria". Falls back to the code itself for anything Intl doesn't know. */
-export function countryName(code: string): string {
-  try {
-    return new Intl.DisplayNames(["en"], { type: "region" }).of(code) ?? code;
-  } catch {
-    // Intl.DisplayNames throws RangeError on a malformed code rather than returning null.
-    return code;
-  }
-}
+// countryName lives in @/lib/countries, next to the generated table it reads. It is not
+// here because Intl.DisplayNames disagrees with itself between Node and the browser,
+// which breaks hydration in a client component.

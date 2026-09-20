@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { COUNTRY_CODES } from "@/lib/countries";
-import { countryName } from "@/lib/format";
+import { COUNTRY_CODES, countryName } from "@/lib/countries";
 
 describe("COUNTRY_CODES", () => {
   it("puts Nigeria first", () => {
@@ -20,5 +19,29 @@ describe("COUNTRY_CODES", () => {
   it("sorts everything after Nigeria by display name", () => {
     const rest = COUNTRY_CODES.slice(1).map(countryName);
     expect(rest).toEqual([...rest].sort((a, b) => a.localeCompare(b, "en")));
+  });
+});
+
+describe("countryName", () => {
+  it("names a code, and falls back to the code when it can't", () => {
+    expect(countryName("NG")).toBe("Nigeria");
+    expect(countryName("ZZZZ")).toBe("ZZZZ");
+  });
+
+  it("prefers the short common name, as the backend does", () => {
+    expect(countryName("TZ")).toBe("Tanzania");
+  });
+
+  it("names every code it offers, so no option ever renders as a bare code", () => {
+    for (const code of COUNTRY_CODES) expect(countryName(code)).not.toBe(code);
+  });
+
+  it("does not depend on Intl, whose data differs between Node and the browser", () => {
+    // Regression guard: Node's ICU calls FK "Falkland Islands (Islas Malvinas)" and
+    // Chromium calls it "Falkland Islands". Rendering that difference inside a client
+    // component is a hydration mismatch, so the name must come from the generated table.
+    const intl = new Intl.DisplayNames(["en"], { type: "region" }).of("FK");
+    expect(countryName("FK")).toBe("Falkland Islands (Malvinas)");
+    expect(countryName("FK")).not.toBe(intl);
   });
 });

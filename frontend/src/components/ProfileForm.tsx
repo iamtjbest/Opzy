@@ -6,14 +6,13 @@ import Input from "@/components/Input";
 import SubmitButton from "@/components/SubmitButton";
 import { saveProfile } from "@/app/actions/profile";
 import type { Profile } from "@/lib/api/types";
-import { COUNTRY_CODES } from "@/lib/countries";
+import { COUNTRY_CODES, countryName } from "@/lib/countries";
 import { EMPTY_PROFILE_STATE } from "@/lib/form-state";
 import {
   CATEGORY_LABELS,
   EDUCATION_LABELS,
   EDUCATION_LEVELS,
   OPPORTUNITY_TYPES,
-  countryName,
 } from "@/lib/format";
 
 // Mirrors backend/app/schemas/profile.py. The backend still has the final say; these only
