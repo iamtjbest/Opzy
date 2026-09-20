@@ -18,3 +18,15 @@ export const EMPTY_FORM_STATE: FormState = { error: null, fields: {} };
 export type ProfileState = FormState & { saved: boolean };
 
 export const EMPTY_PROFILE_STATE: ProfileState = { ...EMPTY_FORM_STATE, saved: false };
+
+/**
+ * The forgot-password form reports only that it has finished. It must never report
+ * whether the address had an account — the endpoint answers identically either way, and
+ * rendering a different state here would undo that.
+ */
+export type ResetRequestState = FormState & { sent: boolean };
+
+export const EMPTY_RESET_REQUEST_STATE: ResetRequestState = {
+  ...EMPTY_FORM_STATE,
+  sent: false,
+};

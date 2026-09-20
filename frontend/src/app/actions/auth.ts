@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 
 import { ApiError, apiFetch, apiPublic } from "@/lib/api/server";
 import type { Profile, SignupResponse, TokenResponse } from "@/lib/api/types";
-import type { FormState } from "@/lib/form-state";
+import type { FormState, ResetRequestState } from "@/lib/form-state";
 import { safeNext } from "@/lib/session";
 import { clearSession, setSession } from "@/lib/session-cookies";
 
@@ -74,4 +74,62 @@ export async function signup(_previous: FormState, data: FormData): Promise<Form
 export async function logout(): Promise<void> {
   await clearSession();
   redirect("/login");
+}
+
+/**
+ * Ask for a reset link. The backend answers 202 with an identical body whether or not the
+ * address has an account — that is the whole point of the endpoint — so this renders the
+ * same confirmation either way. A 429 is the rate limiter and is worth showing.
+ */
+export async function requestPasswordReset(
+  _previous: ResetRequestState,
+  data: FormData,
+): Promise<ResetRequestState> {
+  try {
+    await apiPublic("/auth/password-reset/request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: String(data.get("email") ?? "") }),
+    });
+  } catch (error) {
+    if (!(error instanceof ApiError)) throw error;
+    if (error.status === 429) {
+      return {
+        error: "Too many requests just now. Wait a few minutes and try again.",
+        fields: {},
+        sent: false,
+      };
+    }
+    return { error: error.detail, fields: error.fields, sent: false };
+  }
+
+  return { error: null, fields: {}, sent: true };
+}
+
+/** Spend a reset token. 400 covers unknown, spent and expired alike, by design. */
+export async function confirmPasswordReset(
+  _previous: FormState,
+  data: FormData,
+): Promise<FormState> {
+  const password = String(data.get("password") ?? "");
+  if (password !== String(data.get("confirm") ?? "")) {
+    return { error: null, fields: { confirm: "Those two passwords don't match." } };
+  }
+
+  try {
+    await apiPublic("/auth/password-reset/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        token: String(data.get("token") ?? ""),
+        new_password: password,
+      }),
+    });
+  } catch (error) {
+    if (!(error instanceof ApiError)) throw error;
+    return { error: error.detail, fields: error.fields };
+  }
+
+  // 204, no token back: the user logs in with the new password like anyone else.
+  redirect("/login?reset=1");
 }
