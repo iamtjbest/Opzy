@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.rate_limit import LOGIN_PER_EMAIL, SIGNUP_PER_IP
 from app.core.security import create_access_token
 from app.models import User
 
@@ -158,3 +159,52 @@ async def test_me_never_returns_password_hash(client: AsyncClient):
     token = (await signup(client)).json()["access_token"]
     resp = await client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert "password" not in resp.text
+
+
+# --- rate limiting --------------------------------------------------------------------
+
+
+async def test_repeated_failed_logins_are_throttled(
+    client: AsyncClient, clean_rate_limits: None
+):
+    await signup(client)
+
+    for _ in range(LOGIN_PER_EMAIL.max_hits):
+        resp = await login(client, password="wrong")
+        assert resp.status_code == 401
+
+    throttled = await login(client, password="wrong")
+    assert throttled.status_code == 429
+    assert int(throttled.headers["retry-after"]) > 0
+
+
+async def test_successful_logins_do_not_burn_the_budget(
+    client: AsyncClient, clean_rate_limits: None
+):
+    await signup(client)
+
+    # Comfortably more successes than the per-email limit: each one refunds its own hit.
+    for _ in range(LOGIN_PER_EMAIL.max_hits + 5):
+        resp = await login(client)
+        assert resp.status_code == 200
+
+
+async def test_signup_is_throttled_per_ip(client: AsyncClient, clean_rate_limits: None):
+    for index in range(SIGNUP_PER_IP.max_hits):
+        resp = await signup(client, email=f"user{index}@example.com")
+        assert resp.status_code == 201
+
+    throttled = await signup(client, email="one-too-many@example.com")
+    assert throttled.status_code == 429
+
+
+async def test_throttling_a_login_does_not_reveal_the_account(
+    client: AsyncClient, clean_rate_limits: None
+):
+    # An unknown email must throttle exactly like a known one.
+    for _ in range(LOGIN_PER_EMAIL.max_hits):
+        resp = await login(client, email="ghost@example.com", password="wrong")
+        assert resp.status_code == 401
+
+    throttled = await login(client, email="ghost@example.com", password="wrong")
+    assert throttled.status_code == 429

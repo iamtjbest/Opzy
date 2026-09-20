@@ -11,7 +11,12 @@ from sqlalchemy.pool import NullPool
 from app.core.config import get_settings
 from app.core.db import build_engine_args, get_db
 from app.main import app
-from app.models import Opportunity, OpportunityMatch, UserOpportunityAction
+from app.models import (
+    Opportunity,
+    OpportunityMatch,
+    RateLimitHit,
+    UserOpportunityAction,
+)
 
 
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", "db"}
@@ -71,6 +76,12 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
             yield c
     finally:
         app.dependency_overrides.clear()
+
+
+@pytest.fixture
+async def clean_rate_limits(db_session: AsyncSession) -> None:
+    """Rate limit rows outlive the per-test rollback if an earlier test committed them."""
+    await db_session.execute(delete(RateLimitHit))
 
 
 @pytest.fixture

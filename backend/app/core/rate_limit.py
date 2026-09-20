@@ -1,8 +1,10 @@
 """Fixed-window rate limiting, counted in Postgres so it holds across worker processes."""
 
+import random
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
+from fastapi import HTTPException, status
 from sqlalchemy import delete, func
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -96,3 +98,45 @@ async def prune(db: AsyncSession, *, now: datetime) -> None:
     cutoff = now - timedelta(seconds=LONGEST_WINDOW_SECONDS)
     await db.execute(delete(RateLimitHit).where(RateLimitHit.window_start < cutoff))
     await db.commit()
+
+
+# Roughly one request in fifty clears out expired windows.
+PRUNE_PROBABILITY = 0.02
+
+
+class RateLimiter:
+    """Rate limiting for one request. Handlers decide which keys to count."""
+
+    def __init__(self, db: AsyncSession, ip: str) -> None:
+        self._db = db
+        self._ip = ip
+
+    def _key(self, bucket: str, kind: str, value: str | None) -> str:
+        return f"{bucket}:{kind}:{value if value is not None else self._ip}"
+
+    async def enforce(
+        self, bucket: str, limit: Limit, *, kind: str = "ip", value: str | None = None
+    ) -> None:
+        """Count one attempt and raise 429 if the key is over its limit."""
+        now = datetime.now(UTC)
+        count = await hit(self._db, self._key(bucket, kind, value), limit, now=now)
+        if random.random() < PRUNE_PROBABILITY:
+            await prune(self._db, now=now)
+        if count > limit.max_hits:
+            retry_after = int(
+                (
+                    window_start(now, limit.window_seconds)
+                    + timedelta(seconds=limit.window_seconds)
+                    - now
+                ).total_seconds()
+            )
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many attempts. Try again later.",
+                headers={"Retry-After": str(max(retry_after, 1))},
+            )
+
+    async def give_back(
+        self, bucket: str, limit: Limit, *, kind: str = "ip", value: str | None = None
+    ) -> None:
+        await refund(self._db, self._key(bucket, kind, value), limit, now=datetime.now(UTC))

@@ -4,14 +4,24 @@ import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
 
+from app.core.config import get_settings
 from app.core.db import get_db
+from app.core.rate_limit import RateLimiter, client_ip
 from app.core.security import decode_access_token
 from app.models import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
+
+
+def get_rate_limiter(request: Request, db: DbSession) -> RateLimiter:
+    return RateLimiter(db, client_ip(request, get_settings()))
+
+
+Limiter = Annotated[RateLimiter, Depends(get_rate_limiter)]
 
 
 async def get_current_user(
