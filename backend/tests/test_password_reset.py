@@ -258,3 +258,27 @@ async def test_confirm_is_throttled(client: AsyncClient, clean_rate_limits: None
         json={"token": "wrong", "new_password": NEW_PASSWORD},
     )
     assert throttled.status_code == 429
+
+
+async def test_send_failure_still_leaves_a_usable_token(
+    client: AsyncClient,
+    fake_sender: FakeSender,
+    db_session: AsyncSession,
+    clean_rate_limits: None,
+):
+    # The send is queued as a background task, so its failure happens after the response is
+    # built. The token must still be issued and spendable.
+    await signup(client)
+
+    sent: list = []
+
+    async def refuse(message):
+        sent.append(message)
+        raise EmailError("provider down")
+
+    fake_sender.send = refuse
+    await request_reset(client)
+
+    assert len(sent) == 1
+    row = (await db_session.scalars(select(PasswordResetToken))).one()
+    assert row.used_at is None

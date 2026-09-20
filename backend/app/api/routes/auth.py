@@ -2,7 +2,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -24,7 +24,7 @@ from app.core.security import (
     hash_password,
     verify_password,
 )
-from app.email import EmailError
+from app.email import EmailError, EmailMessage, EmailSender
 from app.models import User
 from app.password_reset import (
     compose_password_reset_email,
@@ -121,9 +121,22 @@ async def me(user: CurrentUser) -> User:
     return user
 
 
+async def _send_quietly(sender: EmailSender, message: EmailMessage) -> None:
+    try:
+        await sender.send(message)
+    except EmailError:
+        # Never surfaced: a failed send must not make the response differ from the
+        # unknown-email one. The user can ask again.
+        logger.exception("Couldn't send a password reset email")
+
+
 @router.post("/password-reset/request", status_code=status.HTTP_202_ACCEPTED)
 async def request_password_reset(
-    body: PasswordResetRequest, db: DbSession, limiter: Limiter, sender: EmailSenderDep
+    body: PasswordResetRequest,
+    db: DbSession,
+    limiter: Limiter,
+    sender: EmailSenderDep,
+    background: BackgroundTasks,
 ) -> dict:
     await limiter.enforce("reset-request", RESET_REQUEST_PER_IP)
     await limiter.enforce(
@@ -136,12 +149,11 @@ async def request_password_reset(
         message = compose_password_reset_email(
             user.email, token, get_settings().frontend_url
         )
-        try:
-            await sender.send(message)
-        except EmailError:
-            # Never surfaced: a failed send must not make this response differ from the
-            # unknown-email one. The user can ask again.
-            logger.exception("Couldn't send a password reset email")
+        # Queued rather than awaited: sending is a call out to Resend that can take seconds,
+        # and only a real account has one to make. Waiting for it here would make a
+        # registered address measurably slower to answer than an unregistered one, which is
+        # the enumeration this endpoint's identical response exists to prevent.
+        background.add_task(_send_quietly, sender, message)
 
     return RESET_REQUESTED
 

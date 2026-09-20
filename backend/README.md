@@ -105,6 +105,12 @@ Argon2 hash, marks the token spent, and retires every other outstanding token fo
 user. Nothing is revealed either way: an unknown address gets the same `202` and the same
 body as a real one, and a failed send is logged rather than surfaced.
 
+The send is queued as a background task rather than awaited. Only a real account has mail
+to send, so waiting for Resend would make a registered address answer measurably slower
+than an unregistered one — the enumeration the identical response exists to prevent. What
+remains in the request is one local insert; the endpoint is much closer to constant-time,
+not exactly constant-time.
+
 Reset tokens are SHA-256, not Argon2, on purpose — there is nothing to brute-force in a
 256-bit random token, and an Argon2 verify per attempt would be a 64 MB-per-request DoS.
 
