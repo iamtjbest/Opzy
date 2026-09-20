@@ -4,12 +4,13 @@ from datetime import datetime
 from html import escape
 from urllib.parse import quote
 
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import (
     RESET_TOKEN_TTL,
     generate_reset_token,
+    hash_password,
     hash_reset_token,
 )
 from app.email import EmailMessage
@@ -55,3 +56,39 @@ async def issue_reset_token(db: AsyncSession, user: User, *, now: datetime) -> s
     )
     await db.commit()
     return token
+
+
+async def consume_reset_token(
+    db: AsyncSession, token: str, new_password: str, *, now: datetime
+) -> bool:
+    """Spend a token and set the new password. False if the token can't be used.
+
+    Unknown, already-spent and expired tokens all return False, so the caller can answer
+    with a single message and leak nothing about which it was.
+    """
+    row = await db.scalar(
+        select(PasswordResetToken).where(
+            PasswordResetToken.token_hash == hash_reset_token(token)
+        )
+    )
+    if row is None or row.used_at is not None or row.expires_at <= now:
+        return False
+
+    user = await db.get(User, row.user_id)
+    if user is None:
+        return False
+
+    user.password_hash = hash_password(new_password)
+    user.password_changed_at = now
+    row.used_at = now
+    # Any other link already in the user's inbox dies with this one.
+    await db.execute(
+        update(PasswordResetToken)
+        .where(
+            PasswordResetToken.user_id == row.user_id,
+            PasswordResetToken.used_at.is_(None),
+        )
+        .values(used_at=now)
+    )
+    await db.commit()
+    return True

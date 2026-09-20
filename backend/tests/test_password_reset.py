@@ -1,8 +1,10 @@
+from datetime import UTC, datetime, timedelta
+
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.rate_limit import RESET_REQUEST_PER_EMAIL
+from app.core.rate_limit import RESET_CONFIRM_PER_IP, RESET_REQUEST_PER_EMAIL
 from app.core.security import RESET_TOKEN_TTL, generate_reset_token, hash_reset_token
 from app.email import EmailError
 from app.models import PasswordResetToken
@@ -143,4 +145,116 @@ async def test_request_is_throttled_per_email(
         assert resp.status_code == 202
 
     throttled = await client.post("/auth/password-reset/request", json={"email": EMAIL})
+    assert throttled.status_code == 429
+
+
+NEW_PASSWORD = "a whole new passphrase"
+
+
+async def request_reset(client: AsyncClient, email: str = EMAIL) -> None:
+    resp = await client.post("/auth/password-reset/request", json={"email": email})
+    assert resp.status_code == 202
+
+
+async def test_reset_end_to_end(
+    client: AsyncClient, fake_sender: FakeSender, clean_rate_limits: None
+):
+    await signup(client)
+    await request_reset(client)
+
+    resp = await client.post(
+        "/auth/password-reset/confirm",
+        json={"token": token_from(fake_sender), "new_password": NEW_PASSWORD},
+    )
+    assert resp.status_code == 204
+
+    old = await client.post("/auth/login", data={"username": EMAIL, "password": PASSWORD})
+    assert old.status_code == 401
+    new = await client.post(
+        "/auth/login", data={"username": EMAIL, "password": NEW_PASSWORD}
+    )
+    assert new.status_code == 200
+
+
+async def test_token_works_exactly_once(
+    client: AsyncClient, fake_sender: FakeSender, clean_rate_limits: None
+):
+    await signup(client)
+    await request_reset(client)
+    token = token_from(fake_sender)
+
+    first = await client.post(
+        "/auth/password-reset/confirm", json={"token": token, "new_password": NEW_PASSWORD}
+    )
+    second = await client.post(
+        "/auth/password-reset/confirm",
+        json={"token": token, "new_password": "another one entirely"},
+    )
+
+    assert first.status_code == 204
+    assert second.status_code == 400
+
+
+async def test_expired_token_is_rejected(
+    client: AsyncClient,
+    fake_sender: FakeSender,
+    db_session: AsyncSession,
+    clean_rate_limits: None,
+):
+    await signup(client)
+    await request_reset(client)
+
+    row = (await db_session.scalars(select(PasswordResetToken))).one()
+    row.expires_at = datetime.now(UTC) - timedelta(minutes=1)
+    await db_session.commit()
+
+    resp = await client.post(
+        "/auth/password-reset/confirm",
+        json={"token": token_from(fake_sender), "new_password": NEW_PASSWORD},
+    )
+    assert resp.status_code == 400
+
+
+async def test_unknown_token_is_rejected_the_same_way(
+    client: AsyncClient, clean_rate_limits: None
+):
+    resp = await client.post(
+        "/auth/password-reset/confirm",
+        json={"token": "not-a-real-token", "new_password": NEW_PASSWORD},
+    )
+
+    assert resp.status_code == 400
+    assert "invalid" in resp.json()["detail"].lower()
+
+
+async def test_reset_invalidates_existing_access_tokens(
+    client: AsyncClient, fake_sender: FakeSender, clean_rate_limits: None
+):
+    signup_body = (
+        await client.post("/auth/signup", json={"email": EMAIL, "password": PASSWORD})
+    ).json()
+    headers = {"Authorization": f"Bearer {signup_body['access_token']}"}
+    assert (await client.get("/auth/me", headers=headers)).status_code == 200
+
+    await request_reset(client)
+    await client.post(
+        "/auth/password-reset/confirm",
+        json={"token": token_from(fake_sender), "new_password": NEW_PASSWORD},
+    )
+
+    assert (await client.get("/auth/me", headers=headers)).status_code == 401
+
+
+async def test_confirm_is_throttled(client: AsyncClient, clean_rate_limits: None):
+    for _ in range(RESET_CONFIRM_PER_IP.max_hits):
+        resp = await client.post(
+            "/auth/password-reset/confirm",
+            json={"token": "wrong", "new_password": NEW_PASSWORD},
+        )
+        assert resp.status_code == 400
+
+    throttled = await client.post(
+        "/auth/password-reset/confirm",
+        json={"token": "wrong", "new_password": NEW_PASSWORD},
+    )
     assert throttled.status_code == 429

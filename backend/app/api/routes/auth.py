@@ -12,6 +12,7 @@ from app.core.config import get_settings
 from app.core.rate_limit import (
     LOGIN_PER_EMAIL,
     LOGIN_PER_IP,
+    RESET_CONFIRM_PER_IP,
     RESET_REQUEST_PER_EMAIL,
     RESET_REQUEST_PER_IP,
     SIGNUP_PER_IP,
@@ -25,8 +26,13 @@ from app.core.security import (
 )
 from app.email import EmailError
 from app.models import User
-from app.password_reset import compose_password_reset_email, issue_reset_token
+from app.password_reset import (
+    compose_password_reset_email,
+    consume_reset_token,
+    issue_reset_token,
+)
 from app.schemas.auth import (
+    PasswordResetConfirm,
     PasswordResetRequest,
     SignupRequest,
     SignupResponse,
@@ -138,3 +144,19 @@ async def request_password_reset(
             logger.exception("Couldn't send a password reset email")
 
     return RESET_REQUESTED
+
+
+@router.post("/password-reset/confirm", status_code=status.HTTP_204_NO_CONTENT)
+async def confirm_password_reset(
+    body: PasswordResetConfirm, db: DbSession, limiter: Limiter
+) -> None:
+    await limiter.enforce("reset-confirm", RESET_CONFIRM_PER_IP)
+
+    ok = await consume_reset_token(db, body.token, body.new_password, now=datetime.now(UTC))
+    if not ok:
+        # One message for unknown, spent and expired alike: distinguishing them would say
+        # whether a token — and so an account — exists.
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="That reset link is invalid or has expired. Request a new one.",
+        )
