@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Logo from "./Logo";
+import LogoutButton from "./LogoutButton";
 
 const links = [
   { href: "/feed", label: "Feed" },
@@ -26,7 +27,14 @@ export default function AppNav({ active }: { active: string }) {
           ))}
         </nav>
       </div>
-      <Link href="/settings" className="h-10 w-10 rounded-full border border-neutral-border bg-neutral-mist" />
+      <div className="flex items-center gap-6">
+        <LogoutButton />
+        <Link
+          href="/settings"
+          aria-label="Settings"
+          className="h-10 w-10 rounded-full border border-neutral-border bg-neutral-mist"
+        />
+      </div>
     </div>
   );
 }

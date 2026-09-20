@@ -2,6 +2,9 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 
+import { DISMISS_REASONS } from "@/lib/format";
+import type { DismissReason } from "@/lib/format";
+
 export default function DismissModal({
   isOpen,
   onClose,
@@ -9,16 +12,8 @@ export default function DismissModal({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onDismiss: (reason: string) => void;
+  onDismiss: (reason: DismissReason) => void;
 }) {
-  const reasons = [
-    "Not relevant to my skills",
-    "Pay is too low",
-    "Not eligible (location, degree)",
-    "Not interested in this company",
-    "Other",
-  ];
-
   return (
     <AnimatePresence>
       {isOpen && (
@@ -50,13 +45,13 @@ export default function DismissModal({
               This helps us improve your future matches.
             </p>
             <div className="mt-6 flex flex-col gap-3">
-              {reasons.map((r) => (
+              {DISMISS_REASONS.map(({ code, label }) => (
                 <button
-                  key={r}
-                  onClick={() => onDismiss(r)}
+                  key={code}
+                  onClick={() => onDismiss(code)}
                   className="rounded-lg border border-neutral-border px-4 py-3 text-left text-sm font-bold text-neutral-ink hover:border-primary-navy hover:bg-neutral-mist transition-colors cursor-pointer"
                 >
-                  {r}
+                  {label}
                 </button>
               ))}
             </div>
