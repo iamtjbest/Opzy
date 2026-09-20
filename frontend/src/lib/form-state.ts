@@ -13,3 +13,8 @@ export type FormState = {
 };
 
 export const EMPTY_FORM_STATE: FormState = { error: null, fields: {} };
+
+/** The profile form also reports a successful save, since it doesn't always redirect. */
+export type ProfileState = FormState & { saved: boolean };
+
+export const EMPTY_PROFILE_STATE: ProfileState = { ...EMPTY_FORM_STATE, saved: false };
