@@ -25,13 +25,13 @@ export default function AboutPage() {
           <h1 className="text-4xl font-extrabold text-primary-navy mb-6">About Opzy</h1>
           <div className="text-lg text-neutral-ink leading-relaxed space-y-4">
             <p>
-              Opzy started from a simple frustration: opportunities that were worth applying for kept getting missed, not because they didn't exist, but because they were scattered across WhatsApp groups, job boards, and pages nobody has time to check every day.
+              Opzy started from a simple frustration: opportunities that were worth applying for kept getting missed, not because they didn&rsquo;t exist, but because they were scattered across WhatsApp groups, job boards, and pages nobody has time to check every day.
             </p>
             <p>
               We talked to dozens of students and early-career professionals before writing a line of code, and the same three problems kept coming up: not knowing if you actually qualify, finding things too late, and not knowing what to trust. Opzy is built around those three problems specifically, not around being another place to browse listings.
             </p>
             <p>
-              We're early. This is a small, invite-first version, built to get real feedback before it's anything more.
+              We&rsquo;re early. This is a small, invite-first version, built to get real feedback before it&rsquo;s anything more.
             </p>
           </div>
         </div>

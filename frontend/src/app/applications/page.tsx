@@ -24,7 +24,7 @@ export default function Applications() {
         <div className="mt-6 flex flex-col gap-4">
           {applied.length === 0 ? (
             <div className="rounded-xl border border-neutral-border bg-white p-8 text-center">
-              <p className="text-neutral-slate">You haven't applied to any opportunities yet.</p>
+              <p className="text-neutral-slate">You haven&rsquo;t applied to any opportunities yet.</p>
               <Link href="/feed" className="mt-4 inline-block text-sm font-bold text-primary-blue hover:underline">
                 Find opportunities
               </Link>

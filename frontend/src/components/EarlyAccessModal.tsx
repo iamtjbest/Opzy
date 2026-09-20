@@ -35,7 +35,7 @@ export default function EarlyAccessModal({
       } else {
         setStatus("error");
       }
-    } catch (err) {
+    } catch {
       setStatus("error");
     }
   };
