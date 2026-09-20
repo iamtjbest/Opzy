@@ -1,0 +1,40 @@
+name: Frontend
+
+on:
+  pull_request:
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend.yml"
+  push:
+    branches: [main]
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - run: npm test
+
+      # No backend needed: every page reads cookies, so all of them are dynamic and
+      # nothing is fetched at build time. Playwright is deliberately not here — it needs
+      # Postgres, uvicorn and seeded opportunities, and it runs locally instead.
+      - run: npm run build
