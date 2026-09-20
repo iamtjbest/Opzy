@@ -1,3 +1,5 @@
+import uuid
+from datetime import UTC, datetime
 from typing import Annotated
 
 import jwt
@@ -9,7 +11,7 @@ from starlette.requests import Request
 from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.rate_limit import RateLimiter, client_ip
-from app.core.security import decode_access_token
+from app.core.security import decode_access_token_claims
 from app.models import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -33,8 +35,9 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        user_id = decode_access_token(token)
-    except jwt.InvalidTokenError:
+        claims = decode_access_token_claims(token)
+        user_id = uuid.UUID(claims["sub"])
+    except (jwt.InvalidTokenError, TypeError, ValueError):
         raise credentials_error from None
 
     # Tokens are stateless, so a deleted user's token stays valid until expiry; this lookup
@@ -42,6 +45,13 @@ async def get_current_user(
     user = await db.get(User, user_id)
     if user is None:
         raise credentials_error
+
+    # A password change retires every token minted before it, so resetting a password
+    # actually locks out whoever prompted the reset.
+    if user.password_changed_at is not None:
+        issued_at = datetime.fromtimestamp(claims["iat"], tz=UTC)
+        if issued_at < user.password_changed_at:
+            raise credentials_error
     return user
 
 

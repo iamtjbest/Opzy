@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import AsyncClient
@@ -208,3 +209,34 @@ async def test_throttling_a_login_does_not_reveal_the_account(
 
     throttled = await login(client, email="ghost@example.com", password="wrong")
     assert throttled.status_code == 429
+
+
+# --- token invalidation ---------------------------------------------------------------
+
+
+async def test_token_issued_before_a_password_change_is_rejected(
+    client: AsyncClient, db_session: AsyncSession, clean_rate_limits: None
+):
+    body = (await signup(client)).json()
+    headers = {"Authorization": f"Bearer {body['access_token']}"}
+    assert (await client.get("/auth/me", headers=headers)).status_code == 200
+
+    user = await db_session.get(User, uuid.UUID(body["user"]["id"]))
+    user.password_changed_at = datetime.now(UTC) + timedelta(seconds=5)
+    await db_session.commit()
+
+    assert (await client.get("/auth/me", headers=headers)).status_code == 401
+
+
+async def test_token_issued_after_a_password_change_still_works(
+    client: AsyncClient, db_session: AsyncSession, clean_rate_limits: None
+):
+    body = (await signup(client)).json()
+    user = await db_session.get(User, uuid.UUID(body["user"]["id"]))
+    user.password_changed_at = datetime.now(UTC) - timedelta(hours=1)
+    await db_session.commit()
+
+    fresh = create_access_token(user.id)
+    resp = await client.get("/auth/me", headers={"Authorization": f"Bearer {fresh}"})
+
+    assert resp.status_code == 200

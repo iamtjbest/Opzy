@@ -57,3 +57,17 @@ def decode_access_token(token: str) -> uuid.UUID:
         return uuid.UUID(payload["sub"])
     except (TypeError, ValueError) as exc:
         raise jwt.InvalidTokenError("Malformed subject") from exc
+
+
+def decode_access_token_claims(token: str) -> dict:
+    """The full validated payload, for callers that need more than the subject."""
+    settings = get_settings()
+    payload = jwt.decode(
+        token,
+        settings.jwt_secret,
+        algorithms=[settings.jwt_algorithm],
+        options={"require": ["exp", "sub", "type", "iat"]},
+    )
+    if payload["type"] != ACCESS_TOKEN_TYPE:
+        raise jwt.InvalidTokenError("Not an access token")
+    return payload
