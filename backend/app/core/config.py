@@ -38,6 +38,13 @@ class Settings(BaseSettings):
     # Links in emails point here.
     frontend_url: str = Field("http://localhost:3000", alias="FRONTEND_URL")
 
+    # Off by default: with no proxy in front, X-Forwarded-For is attacker-controlled, and
+    # trusting it would let one client spoof a fresh IP per request and skip rate limiting.
+    trust_proxy_header: bool = Field(False, alias="TRUST_PROXY_HEADER")
+    # How many proxies append to X-Forwarded-For before it reaches us. The last `hops`
+    # entries were written by infrastructure we control; anything left of them is client input.
+    trusted_proxy_hops: int = Field(1, alias="TRUSTED_PROXY_HOPS", ge=1)
+
     @model_validator(mode="after")
     def _require_strong_secret_when_deployed(self) -> "Settings":
         # An HS256 key shorter than its 256-bit output is brute-forceable offline from any
