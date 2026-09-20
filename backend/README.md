@@ -79,6 +79,8 @@ Email + password, with stateless JWT access tokens (HS256, 60 minutes by default
 | `POST /auth/signup` | JSON `{email, password}` → `201` with `access_token` and `user`. `409` if the email is taken. |
 | `POST /auth/login` | Form-encoded `username` (the email) + `password` → `access_token`. `401` on any failure. |
 | `GET /auth/me` | The current user. Needs `Authorization: Bearer <token>`. |
+| `POST /auth/password-reset/request` | JSON `{email}` → `202`, always the same body whether or not the account exists. Emails a single-use link valid for 1 hour. |
+| `POST /auth/password-reset/confirm` | JSON `{token, new_password}` → `204`. `400` for a token that's unknown, already spent, or expired — one message for all three. |
 
 In `/docs`, click **Authorize** and enter your email as the username to call protected routes.
 
@@ -92,19 +94,59 @@ async def something(user: CurrentUser): ...
 ```
 
 Passwords are hashed with Argon2 and must be 8–128 characters. Emails are trimmed and
-lowercased before they're stored or looked up. Not built yet: rate limiting and password
-reset (Sprint 7), refresh tokens, logout, email verification.
+lowercased before they're stored or looked up. Not built yet: refresh tokens, logout,
+email verification.
+
+### Password reset
+
+`request` mints 32 random bytes, stores only their SHA-256, and emails the token as a
+`FRONTEND_URL/reset-password?token=…` link. `confirm` looks the hash up, sets the new
+Argon2 hash, marks the token spent, and retires every other outstanding token for that
+user. Nothing is revealed either way: an unknown address gets the same `202` and the same
+body as a real one, and a failed send is logged rather than surfaced.
+
+Reset tokens are SHA-256, not Argon2, on purpose — there is nothing to brute-force in a
+256-bit random token, and an Argon2 verify per attempt would be a 64 MB-per-request DoS.
+
+In development `EMAIL_BACKEND=console` just logs the email, so the reset link appears in
+the server log.
+
+### Rate limiting
+
+Fixed windows counted in `rate_limit_hits`, in Postgres rather than in memory so the limit
+still holds if the API ever runs as more than one worker.
+
+| Endpoint | Per IP | Per email |
+|---|---|---|
+| `POST /auth/login` | 30 / 15 min | 10 / 15 min |
+| `POST /auth/signup` | 5 / hour | — |
+| `POST /auth/password-reset/request` | 10 / hour | 3 / hour |
+| `POST /auth/password-reset/confirm` | 10 / hour | — |
+
+Over the limit is a `429` with `Retry-After`. The counter increments *before* the password
+is hashed, and a successful login refunds its own hit — so good logins never eat the
+budget, without the race that a check-then-increment would have.
+
+The per-IP key comes from the socket address. Set `TRUST_PROXY_HEADER=true` (with
+`TRUSTED_PROXY_HOPS`) only when a proxy really is in front; otherwise `X-Forwarded-For` is
+attacker-controlled and a fresh value per request would make the limit a no-op.
+
+### Changing a password invalidates old tokens
+
+`users.password_changed_at` is set on reset, and `get_current_user` rejects any access
+token whose `iat` predates it. It costs nothing — the dependency already loads the user row.
 
 Two known trade-offs, both deliberate:
 
 - **Argon2 costs ~64 MB of memory per hash** (`m=65536,t=3,p=4`, pwdlib's recommended
   settings). That's what makes stolen hashes expensive to crack, but it also means
-  concurrent signups are memory-hungry. Rate limiting (Sprint 7) is the fix; don't lower
-  the cost parameters instead.
-- **Signup reveals whether an email is registered**, via the 409. Login deliberately does
-  not — unknown email and wrong password return an identical 401 in the same amount of
-  time. Hiding it at signup as well would mean replying "check your email" to every
-  attempt, which needs the email sending built in Sprint 6.
+  concurrent signups are memory-hungry. Rate limiting is the mitigation; don't lower the
+  cost parameters instead.
+- **Signup still reveals whether an email is registered**, via the 409. Login and password
+  reset deliberately do not. Hiding it at signup means replying "check your email" to every
+  attempt, so signup can no longer log you straight in — that's an email-verification
+  feature, deferred to its own sprint. Per-IP throttling makes bulk enumeration slow in the
+  meantime.
 
 `ENVIRONMENT` must be `development`, `staging` or `production`; an unrecognised value stops
 the app at startup rather than silently skipping the `JWT_SECRET` strength check that

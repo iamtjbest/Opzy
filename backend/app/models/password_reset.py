@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import TIMESTAMP, ForeignKey, Text, text
+from sqlalchemy import TIMESTAMP, ForeignKey, Index, Text, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -12,6 +12,10 @@ class PasswordResetToken(Base):
     """One issued reset token. Only the hash is stored, never the token itself."""
 
     __tablename__ = "password_reset_tokens"
+    __table_args__ = (
+        # Issuing a token retires the user's outstanding ones, which reads by user_id.
+        Index("password_reset_tokens_user_idx", "user_id"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()")
