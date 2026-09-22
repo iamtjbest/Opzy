@@ -341,6 +341,43 @@ run rather than cleanly retried. Either kind of failure makes the script exit 1.
 `RESEND_API_KEY` and `EMAIL_FROM` to send for real, and `FRONTEND_URL` for the links.
 Deployed environments refuse to start with the console backend.
 
+### Testing it for real, without mailing strangers
+
+Before running with `EMAIL_BACKEND=resend`, **check who would receive mail**:
+
+```bash
+docker compose exec -T db psql -U opzy -d opzy \
+  -c "select email, notification_cadence from users;"
+```
+
+Testing leaves behind `@example.com` users. That's a reserved domain that can never receive
+mail, so every one is a guaranteed bounce, and bounces damage the sending reputation of the
+domain you send from. Set everything to `off`, then enable only an address you control:
+
+```bash
+docker compose exec -T db psql -U opzy -d opzy \
+  -c "delete from users where email like '%@example.com';" \
+  -c "update users set notification_cadence = 'off';" \
+  -c "update users set notification_cadence = 'instant' where email = 'you@example.org';"
+```
+
+Never point a test run at the production database: the script emails whoever it finds there.
+
+Three things then decide whether anything actually sends, and all three are easy to mistake
+for a broken setup:
+
+- **The profile must be filled in.** Only matches scoring 60 or more
+  (`STRONG_MATCH_SCORE`) are emailed. A profile with no nationality or education level
+  scores everything below that, so a run reports `Emailed 0 user(s)` and exits 0.
+- **The opportunity must be newer than the account** — `Opportunity.created_at >=
+  user.created_at`. This is deliberate, so a new signup isn't mailed the whole back
+  catalogue, but it means seeded opportunities never notify an account created after them.
+  To test, insert one dated `now()`.
+- **Resend's test sender only mails you.** With `EMAIL_FROM=Opzy <onboarding@resend.dev>`
+  and no verified domain, any recipient other than the Resend account's own address is
+  refused with `403 validation_error`. The script logs it, marks the user for retry, and
+  exits 1 — working as designed, not a bug.
+
 ## Seeding opportunities
 
 Opportunities are entered by hand in
