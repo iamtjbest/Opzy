@@ -9,10 +9,15 @@ __pycache__/
 .venv/
 venv/
 
-# Env
+# Env — real secrets never get committed.
 .env
 .env.local
 *.env
+# Anything suffixed onto .env too: .env.backup, .env.production, .env.save and friends.
+# `*.env` above only catches names *ending* in .env, so .env.backup slipped through.
+.env.*
+# ...except the checked-in templates, which carry no secrets.
+!.env.example
 
 # Editor / OS
 .DS_Store
