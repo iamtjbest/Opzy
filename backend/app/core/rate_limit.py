@@ -41,9 +41,16 @@ HOUR = 60 * 60
 LOGIN_PER_IP = Limit(max_hits=30, window_seconds=MINUTES_15)
 LOGIN_PER_EMAIL = Limit(max_hits=10, window_seconds=MINUTES_15)
 SIGNUP_PER_IP = Limit(max_hits=5, window_seconds=HOUR)
+# Signup mails the address whether or not it has an account, so without a per-email budget
+# it can be pointed at one inbox as a mail cannon.
+SIGNUP_PER_EMAIL = Limit(max_hits=3, window_seconds=HOUR)
 RESET_REQUEST_PER_IP = Limit(max_hits=10, window_seconds=HOUR)
 RESET_REQUEST_PER_EMAIL = Limit(max_hits=3, window_seconds=HOUR)
 RESET_CONFIRM_PER_IP = Limit(max_hits=10, window_seconds=HOUR)
+VERIFY_RESEND_PER_IP = Limit(max_hits=10, window_seconds=HOUR)
+VERIFY_RESEND_PER_EMAIL = Limit(max_hits=3, window_seconds=HOUR)
+VERIFY_CONFIRM_PER_IP = Limit(max_hits=10, window_seconds=HOUR)
+ACCOUNT_DELETE_PER_IP = Limit(max_hits=10, window_seconds=HOUR)
 
 # Nothing is counted in a window longer than this, so older rows can never affect a decision.
 LONGEST_WINDOW_SECONDS = HOUR

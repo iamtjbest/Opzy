@@ -35,12 +35,18 @@ export default function LoginForm({ next, reset }: { next: string; reset: boolea
       />
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <span className="text-[13px] font-bold text-neutral-ink">Password</span>
+          {/* A real label, not a span: the field is laid out by hand here (to fit the
+              "Forgot password?" link beside it) rather than through Input, and without
+              htmlFor it has no accessible name at all. */}
+          <label htmlFor="login-password" className="text-[13px] font-bold text-neutral-ink">
+            Password
+          </label>
           <Link href="/forgot-password" className="text-[13px] text-primary-blue">
             Forgot password?
           </Link>
         </div>
         <input
+          id="login-password"
           type="password"
           name="password"
           placeholder="••••••••"

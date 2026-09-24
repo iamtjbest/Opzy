@@ -3,8 +3,13 @@
 import { redirect } from "next/navigation";
 
 import { ApiError, apiFetch, apiPublic } from "@/lib/api/server";
-import type { Profile, SignupResponse, TokenResponse } from "@/lib/api/types";
-import type { FormState, ResetRequestState } from "@/lib/form-state";
+import type { AcceptedResponse, Profile, TokenResponse } from "@/lib/api/types";
+import type {
+  FormState,
+  ResetRequestState,
+  SignupState,
+  VerifyState,
+} from "@/lib/form-state";
 import { safeNext } from "@/lib/session";
 import { clearSession, setSession } from "@/lib/session-cookies";
 
@@ -52,9 +57,18 @@ export async function login(_previous: FormState, data: FormData): Promise<FormS
   redirect(destination);
 }
 
-export async function signup(_previous: FormState, data: FormData): Promise<FormState> {
+/**
+ * Create an account. Nobody is logged in by this — the backend answers 202 with no token
+ * and mails a confirmation link, and it answers exactly the same way for an address that
+ * already has an account. So this renders one "check your email" state for both cases; a
+ * separate "that email is taken" message here would leak precisely what the 202 hides.
+ */
+export async function signup(
+  _previous: SignupState,
+  data: FormData,
+): Promise<SignupState> {
   try {
-    const result = await apiPublic<SignupResponse>("/auth/signup", {
+    await apiPublic<AcceptedResponse>("/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -62,13 +76,106 @@ export async function signup(_previous: FormState, data: FormData): Promise<Form
         password: String(data.get("password") ?? ""),
       }),
     });
-    await setSession(result.access_token);
   } catch (error) {
-    return failure(error, "Couldn't create that account.");
+    if (!(error instanceof ApiError)) throw error;
+    if (error.status === 429) {
+      return {
+        error: "Too many attempts just now. Wait a few minutes and try again.",
+        fields: {},
+        sent: false,
+      };
+    }
+    return { error: error.detail, fields: error.fields, sent: false };
   }
 
-  // A new account has no profile, so it always starts at onboarding.
-  redirect("/onboarding");
+  return { error: null, fields: {}, sent: true };
+}
+
+/**
+ * Spend a verification token. On success the backend returns an access token, so the user
+ * lands logged in rather than being sent back to a login form.
+ *
+ * Returns rather than redirects: the caller is an effect on page load, not a form, and it
+ * needs to render "expired, here's a resend button" when this fails.
+ */
+export async function verifyEmail(token: string): Promise<VerifyState> {
+  try {
+    const result = await apiPublic<TokenResponse>("/auth/verify-email/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    await setSession(result.access_token);
+  } catch (error) {
+    if (!(error instanceof ApiError)) throw error;
+    return {
+      status: "failed",
+      error:
+        error.status === 429
+          ? "Too many attempts just now. Wait a few minutes and try again."
+          : error.detail,
+    };
+  }
+
+  return { status: "verified" };
+}
+
+/**
+ * Ask for a fresh confirmation link. Like the reset request, the backend answers 202 with
+ * an identical body whichever the address is, so this reports only that it finished.
+ */
+export async function resendVerification(
+  _previous: ResetRequestState,
+  data: FormData,
+): Promise<ResetRequestState> {
+  try {
+    await apiPublic("/auth/verify-email/resend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: String(data.get("email") ?? "") }),
+    });
+  } catch (error) {
+    if (!(error instanceof ApiError)) throw error;
+    if (error.status === 429) {
+      return {
+        error: "Too many requests just now. Wait a few minutes and try again.",
+        fields: {},
+        sent: false,
+      };
+    }
+    return { error: error.detail, fields: error.fields, sent: false };
+  }
+
+  return { error: null, fields: {}, sent: true };
+}
+
+/**
+ * Delete the logged-in user's account, for good. The backend wants the current password —
+ * a session cookie alone must not be enough to destroy an account — and cascades away the
+ * profile, actions and everything else.
+ */
+export async function deleteAccount(
+  _previous: FormState,
+  data: FormData,
+): Promise<FormState> {
+  try {
+    await apiFetch("/account", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: String(data.get("password") ?? "") }),
+    });
+  } catch (error) {
+    // The backend answers 403 for a wrong password, deliberately: a 401 would be caught by
+    // apiFetch as an expired session and redirect through /session/end, logging the user
+    // out over a typo. So this renders the backend's own message.
+    if (!(error instanceof ApiError)) throw error;
+    return { error: error.detail, fields: error.fields };
+  }
+
+  // The account is gone, so the cookie points at nothing. Clear it before leaving, or the
+  // next request travels with a token whose user no longer exists.
+  await clearSession();
+  redirect("/");
 }
 
 export async function logout(): Promise<void> {

@@ -70,9 +70,20 @@ ONBOARDING = {
 
 
 async def auth_headers(client: AsyncClient, email: str = "ada@example.com") -> dict[str, str]:
+    """Create an account and log in.
+
+    Two calls, not one: since Sprint 9 signup answers 202 with no access token, so that it
+    reads the same whether or not the address was already registered. The account is left
+    unverified, which is a usable account everywhere except notification email — tests that
+    care about that verify it explicitly.
+    """
     resp = await client.post("/auth/signup", json={"email": email, "password": PASSWORD})
-    assert resp.status_code == 201
-    return {"Authorization": f"Bearer {resp.json()['access_token']}"}
+    assert resp.status_code == 202
+    login = await client.post(
+        "/auth/login", data={"username": email, "password": PASSWORD}
+    )
+    assert login.status_code == 200
+    return {"Authorization": f"Bearer {login.json()['access_token']}"}
 
 
 async def test_profile_routes_require_auth(client: AsyncClient):

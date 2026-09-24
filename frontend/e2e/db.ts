@@ -40,3 +40,32 @@ export function psql(statement: string): string | null {
 
 /** Every user this suite has ever created. Everything else cascades from the user row. */
 export const E2E_USER_PATTERN = "e2e-%@example.com";
+
+/**
+ * Forget every rate-limit counter.
+ *
+ * Clearing once before the run stopped being enough in Sprint 9: signup is capped at 5 per
+ * hour per IP, and the suite now creates six or more accounts in a single run (the journey,
+ * the taken-address check, and two in the deletion test). So this is called before each
+ * signup rather than only at startup — otherwise a later test fails on "Too many attempts",
+ * which looks like a broken app but is the backend working exactly as designed.
+ */
+export function clearRateLimits(): boolean {
+  return psql("delete from rate_limit_hits") !== null;
+}
+
+/**
+ * Mark an account's address confirmed, standing in for clicking the emailed link.
+ *
+ * The browser can't do this the real way: only the sha256 of a verification token is
+ * stored, so the token exists nowhere but the email itself. The /verify-email page's own
+ * behaviour is covered separately with a token that was never issued.
+ */
+export function verifyUser(email: string): void {
+  const result = psql(
+    `update users set email_verified_at = now() where email = '${email}'`,
+  );
+  if (result === null) {
+    throw new Error(`e2e: couldn't mark ${email} verified — is the dev database up?`);
+  }
+}

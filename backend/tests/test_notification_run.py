@@ -45,11 +45,21 @@ class FakeSender:
         self.sent.append(message)
 
 
-async def _onboard(client: AsyncClient, email: str = ADA, cadence: str = "instant") -> dict:
+async def _onboard(
+    client: AsyncClient,
+    db_session: AsyncSession,
+    email: str = ADA,
+    cadence: str = "instant",
+) -> dict:
     headers = await auth_headers(client, email)
     assert (await client.put("/profile", json=ONBOARDING, headers=headers)).status_code == 200
     resp = await client.put("/settings/notifications", json={"cadence": cadence}, headers=headers)
     assert resp.status_code == 200
+    # Verified, because an unverified account is never emailed (Sprint 9) and these tests
+    # are about who gets email and when, not about verification.
+    await db_session.execute(
+        update(User).where(User.email == email).values(email_verified_at=NOW)
+    )
     return headers
 
 
@@ -80,7 +90,7 @@ async def _logged(db_session: AsyncSession, email: str) -> list[str]:
 async def test_new_strong_matches_are_emailed_and_recorded(
     client: AsyncClient, db_session: AsyncSession
 ):
-    await _onboard(client)
+    await _onboard(client, db_session)
     await _add(db_session, "Strong", **STRONG)
     await _add(db_session, "Weak", **BELOW)
     sender = FakeSender()
@@ -97,7 +107,7 @@ async def test_new_strong_matches_are_emailed_and_recorded(
 
 
 async def test_the_threshold_is_inclusive(client: AsyncClient, db_session: AsyncSession):
-    await _onboard(client)
+    await _onboard(client, db_session)
     await _add(db_session, "At threshold", **AT_THRESHOLD)
     await _add(db_session, "Below", **BELOW)
 
@@ -107,7 +117,7 @@ async def test_the_threshold_is_inclusive(client: AsyncClient, db_session: Async
 
 
 async def test_a_match_is_emailed_once(client: AsyncClient, db_session: AsyncSession):
-    await _onboard(client)
+    await _onboard(client, db_session)
     await _add(db_session, "First", **STRONG)
     sender = FakeSender()
 
@@ -123,7 +133,7 @@ async def test_a_match_is_emailed_once(client: AsyncClient, db_session: AsyncSes
 async def test_opportunities_from_before_signup_are_skipped(
     client: AsyncClient, db_session: AsyncSession
 ):
-    await _onboard(client)
+    await _onboard(client, db_session)
     await _add(db_session, "Old", created_at=datetime(2020, 1, 1, tzinfo=UTC), **STRONG)
     sender = FakeSender()
 
@@ -136,7 +146,7 @@ async def test_opportunities_from_before_signup_are_skipped(
 async def test_matches_the_user_acted_on_are_skipped(
     client: AsyncClient, db_session: AsyncSession, action: str
 ):
-    headers = await _onboard(client)
+    headers = await _onboard(client, db_session)
     opportunity = await _add(db_session, "Seen", **STRONG)
     resp = await client.post(
         f"/opportunities/{opportunity.id}/actions", json={"action": action}, headers=headers
@@ -152,7 +162,7 @@ async def test_matches_the_user_acted_on_are_skipped(
 async def test_expired_and_past_deadline_are_skipped(
     client: AsyncClient, db_session: AsyncSession
 ):
-    await _onboard(client)
+    await _onboard(client, db_session)
     await _add(db_session, "Expired", status="expired", **STRONG)
     await _add(db_session, "Closed", deadline=TODAY - timedelta(days=1), **STRONG)
     await _add(db_session, "Closes today", deadline=TODAY, **STRONG)
@@ -173,8 +183,44 @@ async def test_users_without_a_profile_are_skipped(client: AsyncClient, db_sessi
     assert sender.sent == []
 
 
+async def test_unverified_users_are_never_emailed(
+    client: AsyncClient, db_session: AsyncSession
+):
+    """Nobody is mailed until they've proved the address is theirs (Sprint 9)."""
+    await _onboard(client, db_session)
+    await db_session.execute(
+        update(User).where(User.email == ADA).values(email_verified_at=None)
+    )
+    await _add(db_session, "Strong", **STRONG)
+    sender = FakeSender()
+
+    result = await _run(db_session, sender)
+
+    assert sender.sent == []
+    assert result.emailed == 0
+
+
+async def test_verifying_lets_the_emails_through(
+    client: AsyncClient, db_session: AsyncSession
+):
+    await _onboard(client, db_session)
+    await db_session.execute(
+        update(User).where(User.email == ADA).values(email_verified_at=None)
+    )
+    await _add(db_session, "Strong", **STRONG)
+    sender = FakeSender()
+    await _run(db_session, sender)
+
+    await db_session.execute(
+        update(User).where(User.email == ADA).values(email_verified_at=NOW)
+    )
+    await _run(db_session, sender, NOW + timedelta(minutes=15))
+
+    assert [e.subject for e in sender.sent] == ["New match: Strong"]
+
+
 async def test_off_users_are_never_emailed(client: AsyncClient, db_session: AsyncSession):
-    await _onboard(client, cadence="off")
+    await _onboard(client, db_session, cadence="off")
     await _add(db_session, "Strong", **STRONG)
     sender = FakeSender()
 
@@ -189,7 +235,7 @@ async def test_off_users_are_never_emailed(client: AsyncClient, db_session: Asyn
 async def test_digests_batch_matches_once_per_period(
     client: AsyncClient, db_session: AsyncSession, cadence: str, period: timedelta
 ):
-    await _onboard(client, cadence=cadence)
+    await _onboard(client, db_session, cadence=cadence)
     await _add(db_session, "A", **STRONG)
     await _add(db_session, "B", **STRONG)
     sender = FakeSender()
@@ -206,8 +252,8 @@ async def test_digests_batch_matches_once_per_period(
 
 
 async def test_a_refused_email_is_retried_next_run(client: AsyncClient, db_session: AsyncSession):
-    await _onboard(client, ADA)
-    await _onboard(client, BOLA)
+    await _onboard(client, db_session, ADA)
+    await _onboard(client, db_session, BOLA)
     await _add(db_session, "Strong", **STRONG)
 
     result = await _run(db_session, FakeSender(refuse=(ADA,)))
@@ -243,8 +289,8 @@ async def test_a_session_bound_to_an_engine_is_refused(client: AsyncClient) -> N
 async def test_a_database_error_for_one_user_does_not_stop_the_run(
     client: AsyncClient, db_session: AsyncSession
 ):
-    await _onboard(client, ADA)
-    await _onboard(client, BOLA)
+    await _onboard(client, db_session, ADA)
+    await _onboard(client, db_session, BOLA)
     opportunity = await _add(db_session, "Strong", **STRONG)
     ada_id = await db_session.scalar(select(User.id).where(User.email == ADA))
     # _recipients() orders by (created_at, id); onboarding both in the same instant
@@ -280,7 +326,7 @@ async def test_a_commit_failure_after_sending_counts_as_already_sent(
     # is impractical to provoke honestly here, so this patches AsyncSession.commit to
     # fail exactly once, right when _notify calls it post-send. Everything else in the
     # run - the query, the insert, the flush, the send itself - happens for real.
-    await _onboard(client)
+    await _onboard(client, db_session)
     await _add(db_session, "Strong", **STRONG)
     sender = FakeSender()
 
@@ -308,7 +354,7 @@ async def test_a_commit_failure_after_sending_counts_as_already_sent(
 async def test_a_run_does_nothing_while_another_is_going(
     client: AsyncClient, db_session: AsyncSession
 ):
-    await _onboard(client)
+    await _onboard(client, db_session)
     await _add(db_session, "Strong", **STRONG)
     url, connect_args, engine_kwargs = build_engine_args(_test_database_url())
     engine = create_async_engine(url, poolclass=NullPool, connect_args=connect_args, **engine_kwargs)

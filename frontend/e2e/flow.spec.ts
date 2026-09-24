@@ -1,4 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+import { clearRateLimits, verifyUser } from "./db";
 
 const PASSWORD = "e2e-password-123";
 
@@ -10,14 +12,36 @@ function newEmail() {
 /** Wait for a Server Action's redirect rather than for the network to go quiet. */
 const NAV_TIMEOUT = 20_000;
 
-test("a new user can go from signup to applied and back out again", async ({ page }) => {
-  const email = newEmail();
-
-  // --- Sign up -------------------------------------------------------------------
+/**
+ * Sign up, confirm the address, and log in.
+ *
+ * Three steps rather than one because signup no longer logs anyone in: it answers "check
+ * your email" whether or not the address was already registered, which is what stops it
+ * being used to find out which emails have accounts.
+ */
+async function signUpVerifyAndLogIn(page: Page, email: string): Promise<void> {
+  // Signup is capped at 5/hour per IP and this suite now makes more than that in one run.
+  clearRateLimits();
   await page.goto("/signup");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(PASSWORD);
   await page.getByRole("button", { name: "Create account" }).click();
+  await expect(page.getByText("Check your email")).toBeVisible();
+
+  verifyUser(email);
+
+  await page.goto("/login");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Log in" }).click();
+}
+
+test("a new user can go from signup to applied and back out again", async ({ page }) => {
+  const email = newEmail();
+
+  // --- Sign up, confirm the address, log in ---------------------------------------
+  await signUpVerifyAndLogIn(page, email);
+  // A confirmed account with no profile yet belongs at onboarding.
   await page.waitForURL("**/onboarding", { timeout: NAV_TIMEOUT });
 
   // --- Onboard -------------------------------------------------------------------
@@ -51,12 +75,21 @@ test("a new user can go from signup to applied and back out again", async ({ pag
   // Every card carries its explanation — the thing the product is for.
   await expect(cards.first().locator("[data-testid='explanation']")).not.toBeEmpty();
 
+  /**
+   * The card whose heading is exactly this title.
+   *
+   * Exact, because `hasText` is a substring match and the dev database has had titles that
+   * are prefixes of each other (a "[TEST] …" row left over from notification testing sits
+   * next to the seeded row it was copied from). A substring filter matches both, so
+   * "the card is gone" reads as "still there" and the failure looks like a bug in dismiss.
+   */
+  const cardFor = (title: string) =>
+    cards.filter({ has: page.getByRole("heading", { level: 2, name: title, exact: true }) });
+
   // Save the first one.
   const savedTitle = await cards.first().locator("h2").innerText();
   await cards.first().getByRole("button", { name: "Save" }).click();
-  await expect(
-    cards.filter({ hasText: savedTitle }).getByRole("button", { name: "Saved" }),
-  ).toBeVisible();
+  await expect(cardFor(savedTitle).getByRole("button", { name: "Saved" })).toBeVisible();
 
   // Dismiss another, with a reason, and check it stays gone across a reload.
   if (cardCount > 1) {
@@ -64,12 +97,10 @@ test("a new user can go from signup to applied and back out again", async ({ pag
     const dismissedTitle = await dismissed.locator("h2").innerText();
     await dismissed.getByRole("button", { name: "Dismiss" }).click();
     await page.getByRole("button", { name: "Not relevant to my skills" }).click();
-    await expect(cards.filter({ hasText: dismissedTitle })).toHaveCount(0);
+    await expect(cardFor(dismissedTitle)).toHaveCount(0);
 
     await page.reload();
-    await expect(
-      page.locator("[data-testid='feed-card']").filter({ hasText: dismissedTitle }),
-    ).toHaveCount(0);
+    await expect(cardFor(dismissedTitle)).toHaveCount(0);
   }
 
   // --- Saved ---------------------------------------------------------------------
@@ -109,6 +140,68 @@ test("a new user can go from signup to applied and back out again", async ({ pag
   await expect(page).toHaveURL(/\/login/);
 });
 
+test("signing up looks the same whether or not the address is taken", async ({ page }) => {
+  const email = newEmail();
+
+  clearRateLimits();
+  await page.goto("/signup");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Create account" }).click();
+  await expect(page.getByText("Check your email")).toBeVisible();
+  const firstPanel = await page.locator("body").innerText();
+
+  // The same address a second time. Nothing on screen may give away that it now exists.
+  await page.goto("/signup");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Create account" }).click();
+  await expect(page.getByText("Check your email")).toBeVisible();
+
+  expect(await page.locator("body").innerText()).toBe(firstPanel);
+});
+
+test("an account can be deleted from Settings, and the email reused", async ({ page }) => {
+  const email = newEmail();
+  await signUpVerifyAndLogIn(page, email);
+  await page.waitForURL("**/onboarding", { timeout: NAV_TIMEOUT });
+
+  await page.goto("/settings");
+  await page.getByRole("button", { name: "Delete Account" }).click();
+
+  // The wrong password must not destroy anything.
+  await page.getByLabel("Confirm your password").fill("not-the-password");
+  await page.getByRole("button", { name: "Delete my account for good" }).click();
+  await expect(page.getByText(/password is incorrect/i)).toBeVisible();
+
+  await page.getByLabel("Confirm your password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Delete my account for good" }).click();
+  await page.waitForURL(/\/$/, { timeout: NAV_TIMEOUT });
+
+  // The session is gone with the account.
+  await page.goto("/feed");
+  await expect(page).toHaveURL(/\/login/);
+
+  // And the address is free again — signing up with it starts a brand-new account.
+  await signUpVerifyAndLogIn(page, email);
+  await page.waitForURL("**/onboarding", { timeout: NAV_TIMEOUT });
+});
+
+test("a confirmation link explains itself when it can't be used", async ({ page }) => {
+  // No token at all: the page says so rather than crashing or silently doing nothing.
+  await page.goto("/verify-email");
+  await expect(page.getByText("missing its confirmation code")).toBeVisible();
+
+  // A token that was never issued gets the generic message and a way out. The happy path
+  // needs the token from the email, so the journey above confirms the address directly.
+  await page.goto("/verify-email?token=not-a-real-token");
+  await expect(page.getByText(/invalid or has expired/i)).toBeVisible();
+
+  await page.getByLabel("Email").fill(newEmail());
+  await page.getByRole("button", { name: "Send a new link" }).click();
+  await expect(page.getByText(/a new link is on its way/i)).toBeVisible();
+});
+
 test("a dead token lands on login instead of looping", async ({ page, context }) => {
   // Not a real token, so the backend answers 401 on the first call the feed makes.
   await context.addCookies([
@@ -133,10 +226,7 @@ test("a forgotten password can be reset from the browser", async ({ page, contex
   const email = newEmail();
 
   // An account to reset.
-  await page.goto("/signup");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(PASSWORD);
-  await page.getByRole("button", { name: "Create account" }).click();
+  await signUpVerifyAndLogIn(page, email);
   await page.waitForURL("**/onboarding", { timeout: NAV_TIMEOUT });
   await context.clearCookies();
 

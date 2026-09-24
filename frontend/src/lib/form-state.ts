@@ -30,3 +30,21 @@ export const EMPTY_RESET_REQUEST_STATE: ResetRequestState = {
   ...EMPTY_FORM_STATE,
   sent: false,
 };
+
+/**
+ * Signup reports only that it has finished, for the same reason: since Sprint 9 the
+ * endpoint answers identically whether the address was new or already registered, and
+ * rendering anything different here would give away what the API refuses to.
+ */
+export type SignupState = FormState & { sent: boolean };
+
+export const EMPTY_SIGNUP_STATE: SignupState = { ...EMPTY_FORM_STATE, sent: false };
+
+/**
+ * The /verify-email page's three states. "verifying" is the initial one because the page
+ * spends the token as soon as it loads.
+ */
+export type VerifyState =
+  | { status: "verifying" }
+  | { status: "verified" }
+  | { status: "failed"; error: string };

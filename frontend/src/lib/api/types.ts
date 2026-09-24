@@ -94,6 +94,23 @@ export type TokenResponse = {
   token_type: string;
 };
 
-export type SignupResponse = TokenResponse & {
-  user: { id: string; email: string; created_at: string };
+/**
+ * What the endpoints that must not reveal whether an account exists answer with: signup,
+ * password-reset/request and verify-email/resend. The body is a fixed sentence, identical
+ * for a new address, a registered one and one that has never been seen, so nothing here
+ * may be branched on.
+ */
+export type AcceptedResponse = {
+  detail: string;
+};
+
+/** backend/app/schemas/auth.py :: UserRead */
+export type CurrentUser = {
+  id: string;
+  email: string;
+  /** Null until the address has been confirmed. Unverified accounts get no email. */
+  email_verified_at: string | null;
+  notification_cadence: Cadence;
+  notification_channel: "email" | "whatsapp";
+  created_at: string;
 };

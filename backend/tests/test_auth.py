@@ -22,28 +22,40 @@ async def login(client: AsyncClient, email: str = "ada@example.com", password: s
     return await client.post("/auth/login", data={"username": email, "password": password})
 
 
+async def signup_then_token(
+    client: AsyncClient, email: str = "ada@example.com", password: str = PASSWORD
+) -> str:
+    """An access token for a freshly created account.
+
+    Two calls because signup deliberately doesn't return one any more — it can't say
+    anything that would distinguish a new address from a registered one.
+    """
+    assert (await signup(client, email, password)).status_code == 202
+    return (await login(client, email, password)).json()["access_token"]
+
+
 # --- signup ---------------------------------------------------------------------------
 
 
-async def test_signup_creates_user_and_logs_in(client: AsyncClient, db_session: AsyncSession):
+async def test_signup_creates_the_user(client: AsyncClient, db_session: AsyncSession):
+    """Since Sprint 9 signup answers 202 and hands back no token — the user has to confirm
+    their address first. See tests/test_email_verification.py for the rest of that flow."""
     resp = await signup(client)
 
-    assert resp.status_code == 201
-    body = resp.json()
-    assert body["token_type"] == "bearer"
-    assert body["access_token"]
-    assert body["user"]["email"] == "ada@example.com"
-    assert body["user"]["notification_cadence"] == "daily"
-    assert body["user"]["notification_channel"] == "email"
-
-    me = await client.get(
-        "/auth/me", headers={"Authorization": f"Bearer {body['access_token']}"}
-    )
-    assert me.status_code == 200
-    assert me.json()["id"] == body["user"]["id"]
+    assert resp.status_code == 202
+    assert "access_token" not in resp.json()
 
     user = await db_session.scalar(select(User).where(User.email == "ada@example.com"))
     assert user is not None
+    assert user.notification_cadence == "daily"
+    assert user.notification_channel == "email"
+    assert user.email_verified_at is None
+
+    me = await client.get(
+        "/auth/me", headers={"Authorization": f"Bearer {(await login(client)).json()['access_token']}"}
+    )
+    assert me.status_code == 200
+    assert me.json()["id"] == str(user.id)
 
 
 async def test_signup_never_stores_or_returns_plaintext(
@@ -52,23 +64,29 @@ async def test_signup_never_stores_or_returns_plaintext(
     resp = await signup(client)
 
     assert PASSWORD not in resp.text
-    assert "password" not in resp.json()["user"]
     user = await db_session.scalar(select(User).where(User.email == "ada@example.com"))
     assert user.password_hash != PASSWORD
     assert PASSWORD not in user.password_hash
 
 
-async def test_signup_normalizes_email(client: AsyncClient):
+async def test_signup_normalizes_email(client: AsyncClient, db_session: AsyncSession):
     resp = await signup(client, email="  Ada@Example.COM ")
-    assert resp.status_code == 201
-    assert resp.json()["user"]["email"] == "ada@example.com"
+
+    assert resp.status_code == 202
+    assert await db_session.scalar(select(User).where(User.email == "ada@example.com"))
 
 
-async def test_signup_duplicate_email_conflicts(client: AsyncClient):
-    assert (await signup(client)).status_code == 201
+async def test_signup_does_not_reveal_a_duplicate_email(
+    client: AsyncClient, clean_rate_limits: None
+):
+    """The 409 is gone on purpose: it told anyone who asked which emails are registered.
+    Signup now answers identically either way — see tests/test_email_verification.py."""
+    first = await signup(client)
 
-    resp = await signup(client, email="ADA@example.com")
-    assert resp.status_code == 409
+    second = await signup(client, email="ADA@example.com")
+
+    assert first.status_code == second.status_code == 202
+    assert first.json() == second.json()
 
 
 async def test_signup_does_not_report_other_constraints_as_conflict(
@@ -157,7 +175,7 @@ async def test_me_rejects_token_for_missing_user(client: AsyncClient):
 
 
 async def test_me_never_returns_password_hash(client: AsyncClient):
-    token = (await signup(client)).json()["access_token"]
+    token = await signup_then_token(client)
     resp = await client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert "password" not in resp.text
 
@@ -193,7 +211,7 @@ async def test_successful_logins_do_not_burn_the_budget(
 async def test_signup_is_throttled_per_ip(client: AsyncClient, clean_rate_limits: None):
     for index in range(SIGNUP_PER_IP.max_hits):
         resp = await signup(client, email=f"user{index}@example.com")
-        assert resp.status_code == 201
+        assert resp.status_code == 202
 
     throttled = await signup(client, email="one-too-many@example.com")
     assert throttled.status_code == 429
@@ -217,11 +235,10 @@ async def test_throttling_a_login_does_not_reveal_the_account(
 async def test_token_issued_before_a_password_change_is_rejected(
     client: AsyncClient, db_session: AsyncSession, clean_rate_limits: None
 ):
-    body = (await signup(client)).json()
-    headers = {"Authorization": f"Bearer {body['access_token']}"}
+    headers = {"Authorization": f"Bearer {await signup_then_token(client)}"}
     assert (await client.get("/auth/me", headers=headers)).status_code == 200
 
-    user = await db_session.get(User, uuid.UUID(body["user"]["id"]))
+    user = await db_session.scalar(select(User).where(User.email == "ada@example.com"))
     user.password_changed_at = datetime.now(UTC) + timedelta(seconds=5)
     await db_session.commit()
 
@@ -231,8 +248,8 @@ async def test_token_issued_before_a_password_change_is_rejected(
 async def test_token_issued_after_a_password_change_still_works(
     client: AsyncClient, db_session: AsyncSession, clean_rate_limits: None
 ):
-    body = (await signup(client)).json()
-    user = await db_session.get(User, uuid.UUID(body["user"]["id"]))
+    await signup_then_token(client)
+    user = await db_session.scalar(select(User).where(User.email == "ada@example.com"))
     user.password_changed_at = datetime.now(UTC) - timedelta(hours=1)
     await db_session.commit()
 

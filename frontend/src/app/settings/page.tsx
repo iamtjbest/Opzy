@@ -1,5 +1,6 @@
 import AppNav from "@/components/AppNav";
 import CadencePicker from "@/components/CadencePicker";
+import DeleteAccountButton from "@/components/DeleteAccountButton";
 import LogoutButton from "@/components/LogoutButton";
 import ProfileForm from "@/components/ProfileForm";
 import { ApiError, apiFetch } from "@/lib/api/server";
@@ -54,11 +55,7 @@ export default async function Settings() {
           <p className="mt-2 text-sm text-neutral-slate">
             Once you delete your account, there is no going back. Please be certain.
           </p>
-          {/* Deliberately unwired: DELETE /account doesn't exist yet. Sprint 9 builds it
-              and hooks this up. Don't "fix" this by inventing an endpoint. */}
-          <button className="mt-4 rounded-lg border border-danger-red px-5 py-2.5 text-[13px] font-bold text-danger-red transition-colors hover:bg-danger-red hover:text-white cursor-pointer">
-            Delete Account
-          </button>
+          <DeleteAccountButton />
         </div>
       </div>
     </div>

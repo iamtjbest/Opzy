@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.rate_limit import RESET_CONFIRM_PER_IP, RESET_REQUEST_PER_EMAIL
-from app.core.security import RESET_TOKEN_TTL, generate_reset_token, hash_reset_token
+from app.core.security import RESET_TOKEN_TTL, generate_url_token, hash_url_token
 from app.email import EmailError
 from app.models import PasswordResetToken
 from app.password_reset import compose_password_reset_email
@@ -13,7 +13,7 @@ from tests.conftest import FakeSender
 
 
 def test_tokens_are_unguessable_and_distinct():
-    tokens = {generate_reset_token() for _ in range(100)}
+    tokens = {generate_url_token() for _ in range(100)}
 
     assert len(tokens) == 100
     # token_urlsafe(32) is 32 random bytes, base64url encoded.
@@ -21,11 +21,11 @@ def test_tokens_are_unguessable_and_distinct():
 
 
 def test_hash_is_stable_and_is_not_the_token():
-    token = generate_reset_token()
+    token = generate_url_token()
 
-    assert hash_reset_token(token) == hash_reset_token(token)
-    assert token not in hash_reset_token(token)
-    assert len(hash_reset_token(token)) == 64
+    assert hash_url_token(token) == hash_url_token(token)
+    assert token not in hash_url_token(token)
+    assert len(hash_url_token(token)) == 64
 
 
 def test_token_lives_for_an_hour():
@@ -57,9 +57,15 @@ EMAIL = "ada@example.com"
 PASSWORD = "correct horse battery"
 
 
-async def signup(client: AsyncClient, email: str = EMAIL) -> None:
+async def signup(client: AsyncClient, sender: FakeSender, email: str = EMAIL) -> None:
+    """Create an account and forget the verification email it triggers.
+
+    Since Sprint 9 signup mails a confirmation link, which would otherwise be counted by
+    every assertion in this module about what was sent. These tests are about reset email.
+    """
     resp = await client.post("/auth/signup", json={"email": email, "password": PASSWORD})
-    assert resp.status_code == 201
+    assert resp.status_code == 202
+    sender.sent.clear()
 
 
 def token_from(sender: FakeSender) -> str:
@@ -73,7 +79,7 @@ async def test_request_emails_a_link(
     db_session: AsyncSession,
     clean_rate_limits: None,
 ):
-    await signup(client)
+    await signup(client, fake_sender)
 
     resp = await client.post("/auth/password-reset/request", json={"email": EMAIL})
 
@@ -89,7 +95,7 @@ async def test_request_emails_a_link(
 async def test_unknown_email_looks_identical(
     client: AsyncClient, fake_sender: FakeSender, clean_rate_limits: None
 ):
-    await signup(client)
+    await signup(client, fake_sender)
 
     known = await client.post("/auth/password-reset/request", json={"email": EMAIL})
     unknown = await client.post(
@@ -108,7 +114,7 @@ async def test_request_supersedes_earlier_tokens(
     db_session: AsyncSession,
     clean_rate_limits: None,
 ):
-    await signup(client)
+    await signup(client, fake_sender)
 
     await client.post("/auth/password-reset/request", json={"email": EMAIL})
     await client.post("/auth/password-reset/request", json={"email": EMAIL})
@@ -124,7 +130,7 @@ async def test_request_supersedes_earlier_tokens(
 async def test_email_failure_does_not_change_the_response(
     client: AsyncClient, fake_sender: FakeSender, clean_rate_limits: None
 ):
-    await signup(client)
+    await signup(client, fake_sender)
 
     async def refuse(message):
         raise EmailError("provider down")
@@ -138,7 +144,7 @@ async def test_email_failure_does_not_change_the_response(
 async def test_request_is_throttled_per_email(
     client: AsyncClient, fake_sender: FakeSender, clean_rate_limits: None
 ):
-    await signup(client)
+    await signup(client, fake_sender)
 
     for _ in range(RESET_REQUEST_PER_EMAIL.max_hits):
         resp = await client.post("/auth/password-reset/request", json={"email": EMAIL})
@@ -159,7 +165,7 @@ async def request_reset(client: AsyncClient, email: str = EMAIL) -> None:
 async def test_reset_end_to_end(
     client: AsyncClient, fake_sender: FakeSender, clean_rate_limits: None
 ):
-    await signup(client)
+    await signup(client, fake_sender)
     await request_reset(client)
 
     resp = await client.post(
@@ -179,7 +185,7 @@ async def test_reset_end_to_end(
 async def test_token_works_exactly_once(
     client: AsyncClient, fake_sender: FakeSender, clean_rate_limits: None
 ):
-    await signup(client)
+    await signup(client, fake_sender)
     await request_reset(client)
     token = token_from(fake_sender)
 
@@ -201,7 +207,7 @@ async def test_expired_token_is_rejected(
     db_session: AsyncSession,
     clean_rate_limits: None,
 ):
-    await signup(client)
+    await signup(client, fake_sender)
     await request_reset(client)
 
     row = (await db_session.scalars(select(PasswordResetToken))).one()
@@ -230,10 +236,11 @@ async def test_unknown_token_is_rejected_the_same_way(
 async def test_reset_invalidates_existing_access_tokens(
     client: AsyncClient, fake_sender: FakeSender, clean_rate_limits: None
 ):
-    signup_body = (
-        await client.post("/auth/signup", json={"email": EMAIL, "password": PASSWORD})
-    ).json()
-    headers = {"Authorization": f"Bearer {signup_body['access_token']}"}
+    await signup(client, fake_sender)
+    login = await client.post(
+        "/auth/login", data={"username": EMAIL, "password": PASSWORD}
+    )
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
     assert (await client.get("/auth/me", headers=headers)).status_code == 200
 
     await request_reset(client)
@@ -268,7 +275,7 @@ async def test_send_failure_still_leaves_a_usable_token(
 ):
     # The send is queued as a background task, so its failure happens after the response is
     # built. The token must still be issued and spendable.
-    await signup(client)
+    await signup(client, fake_sender)
 
     sent: list = []
 

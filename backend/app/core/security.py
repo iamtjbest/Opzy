@@ -76,15 +76,20 @@ def decode_access_token_claims(token: str) -> dict:
 
 
 RESET_TOKEN_TTL = timedelta(hours=1)
+# Longer than a reset's hour: a reset is answering something you just asked for, while a
+# verification link often gets opened the next morning. Still short enough that an
+# abandoned link in an old inbox stops working.
+VERIFICATION_TOKEN_TTL = timedelta(hours=24)
 # 32 bytes of entropy. Deliberately not Argon2-hashed: there is nothing to brute-force in a
 # 256-bit random token, and an Argon2 verify per attempt would be a 64 MB-per-request DoS.
-RESET_TOKEN_BYTES = 32
+URL_TOKEN_BYTES = 32
 
 
-def generate_reset_token() -> str:
-    return secrets.token_urlsafe(RESET_TOKEN_BYTES)
+def generate_url_token() -> str:
+    """A random token to put in an emailed link. Shared by reset and verification."""
+    return secrets.token_urlsafe(URL_TOKEN_BYTES)
 
 
-def hash_reset_token(token: str) -> str:
+def hash_url_token(token: str) -> str:
     """What gets stored. A stolen database row can't be turned back into a usable link."""
     return hashlib.sha256(token.encode()).hexdigest()

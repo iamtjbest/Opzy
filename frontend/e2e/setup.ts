@@ -1,4 +1,4 @@
-import { psql } from "./db";
+import { clearRateLimits } from "./db";
 
 /**
  * Clear the rate limiter before the run.
@@ -10,7 +10,7 @@ import { psql } from "./db";
  * Only ever run against the local Docker database. Never point this at anything shared.
  */
 export default function setup() {
-  if (psql("delete from rate_limit_hits") === null) {
+  if (!clearRateLimits()) {
     console.warn(
       "e2e setup: couldn't clear rate_limit_hits. If signup fails with 'Too many " +
         "attempts', that is why — wait an hour or start the Docker database.",

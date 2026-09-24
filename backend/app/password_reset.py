@@ -9,9 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import (
     RESET_TOKEN_TTL,
-    generate_reset_token,
+    generate_url_token,
     hash_password,
-    hash_reset_token,
+    hash_url_token,
 )
 from app.email import EmailMessage
 from app.models import PasswordResetToken, User
@@ -46,11 +46,11 @@ async def issue_reset_token(db: AsyncSession, user: User, *, now: datetime) -> s
         )
         .values(used_at=now)
     )
-    token = generate_reset_token()
+    token = generate_url_token()
     db.add(
         PasswordResetToken(
             user_id=user.id,
-            token_hash=hash_reset_token(token),
+            token_hash=hash_url_token(token),
             expires_at=now + RESET_TOKEN_TTL,
         )
     )
@@ -68,7 +68,7 @@ async def consume_reset_token(
     """
     row = await db.scalar(
         select(PasswordResetToken).where(
-            PasswordResetToken.token_hash == hash_reset_token(token)
+            PasswordResetToken.token_hash == hash_url_token(token)
         )
     )
     if row is None or row.used_at is not None or row.expires_at <= now:

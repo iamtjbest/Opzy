@@ -76,11 +76,14 @@ Email + password, with stateless JWT access tokens (HS256, 60 minutes by default
 
 | Endpoint | |
 |---|---|
-| `POST /auth/signup` | JSON `{email, password}` → `201` with `access_token` and `user`. `409` if the email is taken. |
-| `POST /auth/login` | Form-encoded `username` (the email) + `password` → `access_token`. `401` on any failure. |
-| `GET /auth/me` | The current user. Needs `Authorization: Bearer <token>`. |
+| `POST /auth/signup` | JSON `{email, password}` → `202`, **no token**, always the same body whether the address is new or already registered. Emails a confirmation link, or a "you already have an account" notice. |
+| `POST /auth/login` | Form-encoded `username` (the email) + `password` → `access_token`. `401` on any failure. Works for unverified accounts. |
+| `GET /auth/me` | The current user, including `email_verified_at`. Needs `Authorization: Bearer <token>`. |
+| `POST /auth/verify-email/confirm` | JSON `{token}` → `200` with `access_token`, so the user lands logged in. `400` for a token that's unknown, already spent, or expired — one message for all three. |
+| `POST /auth/verify-email/resend` | JSON `{email}` → `202`, always the same body. A fresh link if the address needs confirming, a "you're already confirmed" note if it doesn't, nothing at all if it has no account. |
 | `POST /auth/password-reset/request` | JSON `{email}` → `202`, always the same body whether or not the account exists. Emails a single-use link valid for 1 hour. |
 | `POST /auth/password-reset/confirm` | JSON `{token, new_password}` → `204`. `400` for a token that's unknown, already spent, or expired — one message for all three. |
+| `DELETE /account` | JSON `{password}` → `204`. Needs a bearer token **and** the current password; a wrong one is `403`, not `401`. Hard delete: everything cascades from the user row. |
 
 In `/docs`, click **Authorize** and enter your email as the username to call protected routes.
 
@@ -94,8 +97,50 @@ async def something(user: CurrentUser): ...
 ```
 
 Passwords are hashed with Argon2 and must be 8–128 characters. Emails are trimmed and
-lowercased before they're stored or looked up. Not built yet: refresh tokens, logout,
-email verification.
+lowercased before they're stored or looked up. Not built yet: refresh tokens,
+logout-everywhere, and changing your email address once verified.
+
+### Email verification
+
+Signing up doesn't log you in. `signup` answers `202` with a fixed body — **the same body
+and status whether the address is new, already registered, or nonsense** — and mails either
+a `FRONTEND_URL/verify-email?token=…` link or, if the address already has an account, a
+notice with no token in it. There is no `409` any more; that status was an
+account-existence oracle for anyone who cared to ask.
+
+The password is hashed *before* the new-versus-existing branch so both paths pay the same
+~64 MB Argon2 cost, and both mails are queued as background tasks, for exactly the reason
+the password-reset section gives below.
+
+`verify-email/confirm` spends the token, stamps `users.email_verified_at` and returns an
+access token — clicking a link only you could have received is at least as good as a
+password, so there's no point bouncing the user to a login form.
+
+**An unverified account is a normal account, except it gets no email.** It can log in,
+onboard, use the feed and change its settings; `send_notifications` simply skips any user
+whose `email_verified_at` is null. Blocking login instead would turn a spam-foldered email
+into a permanent lockout, which is a worse failure than a delayed digest.
+
+**Keep `EMAIL_BACKEND=console` for local work and for the e2e suite.** Signup now sends mail
+on *every* attempt, where before Sprint 9 it sent none, so with `EMAIL_BACKEND=resend` a
+Playwright run makes a real Resend API call per signup. Every one is refused — the suite's
+addresses are `@example.com`, which Resend rejects with `422 validation_error` — and the
+refusal is logged and swallowed rather than surfaced, exactly as designed, so the tests still
+pass. It is just wasted quota and a noisy log.
+
+`email_verification_tokens` is its own table rather than a `purpose` column on
+`password_reset_tokens`. Sharing one table means a reset token could be spent as proof of
+address anywhere a query forgot to filter — two tables make that impossible to write.
+
+### Deleting an account
+
+`DELETE /account` is a hard delete, and wants the current password in the body as well as a
+valid bearer token: a borrowed or stolen session alone should not be able to destroy an
+account irreversibly. A wrong password is a **`403`**, not a `401` — everything in this app
+reads a 401 as "your session expired", and the frontend turns one into a forced logout, so
+answering 401 here would log a user out for a typo. The `ON DELETE CASCADE`s in `../docs/schema.sql` take the profile, its
+skills and interests, every action, the notification log and both token tables with the user
+row, so afterwards the address is free to sign up again as a brand-new account.
 
 ### Password reset
 
@@ -125,9 +170,15 @@ still holds if the API ever runs as more than one worker.
 | Endpoint | Per IP | Per email |
 |---|---|---|
 | `POST /auth/login` | 30 / 15 min | 10 / 15 min |
-| `POST /auth/signup` | 5 / hour | — |
+| `POST /auth/signup` | 5 / hour | 3 / hour |
+| `POST /auth/verify-email/resend` | 10 / hour | 3 / hour |
+| `POST /auth/verify-email/confirm` | 10 / hour | — |
 | `POST /auth/password-reset/request` | 10 / hour | 3 / hour |
 | `POST /auth/password-reset/confirm` | 10 / hour | — |
+| `DELETE /account` | 10 / hour | — |
+
+Signup gained a per-email budget in Sprint 9: it now mails the address whether or not that
+address has an account, so without one it would be a way to bomb somebody's inbox.
 
 Over the limit is a `429` with `Retry-After`. The counter increments *before* the password
 is hashed, and a successful login refunds its own hit — so good logins never eat the
@@ -363,9 +414,13 @@ docker compose exec -T db psql -U opzy -d opzy \
 
 Never point a test run at the production database: the script emails whoever it finds there.
 
-Three things then decide whether anything actually sends, and all three are easy to mistake
+Four things then decide whether anything actually sends, and all four are easy to mistake
 for a broken setup:
 
+- **The address must be confirmed.** Since Sprint 9 a user with `email_verified_at` null is
+  skipped entirely, so an account created by hand or by the test suite sends nothing until
+  it verifies. To enable one for testing:
+  `update users set email_verified_at = now() where email = 'you@example.org';`
 - **The profile must be filled in.** Only matches scoring 60 or more
   (`STRONG_MATCH_SCORE`) are emailed. A profile with no nationality or education level
   scores everything below that, so a run reports `Emailed 0 user(s)` and exits 0.

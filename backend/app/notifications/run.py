@@ -81,7 +81,13 @@ async def new_strong_matches(db: AsyncSession, user: Recipient, today: date) -> 
 async def _recipients(db: AsyncSession) -> list[Recipient]:
     rows = await db.execute(
         select(User.id, User.email, User.notification_cadence, User.created_at)
-        .where(User.notification_cadence != OFF, User.notification_channel == EMAIL_CHANNEL)
+        .where(
+            User.notification_cadence != OFF,
+            User.notification_channel == EMAIL_CHANNEL,
+            # Nobody is emailed until they've proved the address is theirs. Signing up with
+            # someone else's address otherwise turns Opzy into a way to mail them.
+            User.email_verified_at.is_not(None),
+        )
         .order_by(User.created_at, User.id)
     )
     return [Recipient(*row) for row in rows]

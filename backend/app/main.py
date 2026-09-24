@@ -4,7 +4,16 @@ import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import actions, auth, feed, health, notification_settings, opportunities, profile
+from app.api.routes import (
+    account,
+    actions,
+    auth,
+    feed,
+    health,
+    notification_settings,
+    opportunities,
+    profile,
+)
 from app.core.config import get_settings
 from app.core.db import engine
 from app.email import EMAIL_TIMEOUT_SECONDS
@@ -39,3 +48,4 @@ app.include_router(opportunities.router)
 app.include_router(feed.router)
 app.include_router(actions.router)
 app.include_router(notification_settings.router)
+app.include_router(account.router)
