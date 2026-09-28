@@ -51,6 +51,8 @@ async def get_current_user(
     # actually locks out whoever prompted the reset.
     if user.password_changed_at is not None:
         issued_at = datetime.fromtimestamp(claims["iat"], tz=UTC)
+        # `iat` carries microseconds (see create_access_token), so a login in the same
+        # second as a reset isn't mistaken for one from before it.
         if issued_at < user.password_changed_at:
             raise credentials_error
     return user

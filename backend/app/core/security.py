@@ -37,7 +37,10 @@ def create_access_token(user_id: uuid.UUID) -> str:
     payload = {
         "sub": str(user_id),
         "type": ACCESS_TOKEN_TYPE,
-        "iat": now,
+        # A float, not the datetime: PyJWT would truncate a datetime to whole seconds, and
+        # then a login in the same second as a password reset would get a token that
+        # get_current_user already counts as predating the reset.
+        "iat": now.timestamp(),
         "exp": now + timedelta(minutes=settings.access_token_expire_minutes),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)

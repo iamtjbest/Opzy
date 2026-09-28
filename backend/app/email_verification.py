@@ -10,7 +10,7 @@ from datetime import datetime
 from html import escape
 from urllib.parse import quote
 
-from sqlalchemy import select, update
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import (
@@ -114,28 +114,35 @@ async def consume_verification_token(
     with a single message and leak nothing about which it was — in particular, nothing
     about whether an account exists.
     """
-    row = await db.scalar(
-        select(EmailVerificationToken).where(
-            EmailVerificationToken.token_hash == hash_url_token(token)
+    # Checked and spent in one statement, as in `consume_reset_token`: two requests with one
+    # token can't both see it unused.
+    user_id = await db.scalar(
+        update(EmailVerificationToken)
+        .where(
+            EmailVerificationToken.token_hash == hash_url_token(token),
+            EmailVerificationToken.used_at.is_(None),
+            EmailVerificationToken.expires_at > now,
         )
+        .values(used_at=now)
+        .returning(EmailVerificationToken.user_id)
     )
-    if row is None or row.used_at is not None or row.expires_at <= now:
+    if user_id is None:
         return None
 
-    user = await db.get(User, row.user_id)
+    user = await db.get(User, user_id)
     if user is None:
+        await db.rollback()
         return None
 
     # Re-verifying an already-verified account keeps the original instant: the address was
     # proven then, and moving the stamp forward would lose that.
     if user.email_verified_at is None:
         user.email_verified_at = now
-    row.used_at = now
     # Any other link already in the user's inbox dies with this one.
     await db.execute(
         update(EmailVerificationToken)
         .where(
-            EmailVerificationToken.user_id == row.user_id,
+            EmailVerificationToken.user_id == user_id,
             EmailVerificationToken.used_at.is_(None),
         )
         .values(used_at=now)

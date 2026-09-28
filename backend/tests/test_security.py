@@ -8,6 +8,7 @@ from app.core.config import get_settings
 from app.core.security import (
     create_access_token,
     decode_access_token,
+    decode_access_token_claims,
     hash_password,
     verify_password,
 )
@@ -109,3 +110,11 @@ def test_wrong_token_type_rejected():
     )
     with pytest.raises(jwt.InvalidTokenError):
         decode_access_token(token)
+
+
+def test_access_token_iat_keeps_sub_second_precision():
+    # Whole-second iat made a token minted just after a password change look like it
+    # predated it (get_current_user compares iat with password_changed_at).
+    claims = decode_access_token_claims(create_access_token(uuid.uuid4()))
+
+    assert isinstance(claims["iat"], float)

@@ -4,7 +4,7 @@ from datetime import datetime
 from html import escape
 from urllib.parse import quote
 
-from sqlalchemy import select, update
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import (
@@ -66,26 +66,34 @@ async def consume_reset_token(
     Unknown, already-spent and expired tokens all return False, so the caller can answer
     with a single message and leak nothing about which it was.
     """
-    row = await db.scalar(
-        select(PasswordResetToken).where(
-            PasswordResetToken.token_hash == hash_url_token(token)
+    # Spent in the same statement that checks it's spendable. A read-then-write would let
+    # two requests carrying one token both see it unused and both go through; here the
+    # second waits on the row lock, then finds used_at set and matches nothing.
+    user_id = await db.scalar(
+        update(PasswordResetToken)
+        .where(
+            PasswordResetToken.token_hash == hash_url_token(token),
+            PasswordResetToken.used_at.is_(None),
+            PasswordResetToken.expires_at > now,
         )
+        .values(used_at=now)
+        .returning(PasswordResetToken.user_id)
     )
-    if row is None or row.used_at is not None or row.expires_at <= now:
+    if user_id is None:
         return False
 
-    user = await db.get(User, row.user_id)
+    user = await db.get(User, user_id)
     if user is None:
+        await db.rollback()
         return False
 
     user.password_hash = hash_password(new_password)
     user.password_changed_at = now
-    row.used_at = now
     # Any other link already in the user's inbox dies with this one.
     await db.execute(
         update(PasswordResetToken)
         .where(
-            PasswordResetToken.user_id == row.user_id,
+            PasswordResetToken.user_id == user_id,
             PasswordResetToken.used_at.is_(None),
         )
         .values(used_at=now)

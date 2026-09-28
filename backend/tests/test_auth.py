@@ -257,3 +257,19 @@ async def test_token_issued_after_a_password_change_still_works(
     resp = await client.get("/auth/me", headers={"Authorization": f"Bearer {fresh}"})
 
     assert resp.status_code == 200
+
+
+async def test_token_issued_just_after_a_password_change_works(
+    client: AsyncClient, db_session: AsyncSession, clean_rate_limits: None
+):
+    # Logging in straight after a reset lands in the same second often enough. When `iat`
+    # was whole seconds, that token counted as predating the reset and was dead on arrival.
+    await signup_then_token(client)
+    user = await db_session.scalar(select(User).where(User.email == "ada@example.com"))
+    user.password_changed_at = datetime.now(UTC)
+    await db_session.commit()
+
+    fresh = create_access_token(user.id)
+    resp = await client.get("/auth/me", headers={"Authorization": f"Bearer {fresh}"})
+
+    assert resp.status_code == 200
