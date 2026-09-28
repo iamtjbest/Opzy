@@ -45,3 +45,6 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /.playwright/
+
+# early-access sign-ups: real people's addresses, written at runtime
+/data/
