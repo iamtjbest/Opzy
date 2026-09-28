@@ -37,6 +37,9 @@ async function signUpVerifyAndLogIn(page: Page, email: string): Promise<void> {
 }
 
 test("a new user can go from signup to applied and back out again", async ({ page }) => {
+  // The longest journey here, visiting the most pages that a cold `next dev` compiles on
+  // first hit, so it gets more than the config's default.
+  test.setTimeout(180_000);
   const email = newEmail();
 
   // --- Sign up, confirm the address, log in ---------------------------------------

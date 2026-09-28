@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // `next dev` (16.3) also writes a stray frontend/frontend/.next/dev/static; without
+    // this, `npm run lint` after any Playwright run reports thousands of problems in it.
+    "**/.next/**",
   ]),
 ]);
 
