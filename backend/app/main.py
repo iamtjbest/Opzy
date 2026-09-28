@@ -31,7 +31,16 @@ async def lifespan(app: FastAPI):
     await engine.dispose()
 
 
-app = FastAPI(title="Opzy API", version="0.1.0", lifespan=lifespan)
+# The interactive docs are a map of every endpoint and its inputs. Handy locally; nobody
+# outside needs one of the deployed API.
+DOCS_OFF = {"docs_url": None, "redoc_url": None, "openapi_url": None}
+
+app = FastAPI(
+    title="Opzy API",
+    version="0.1.0",
+    lifespan=lifespan,
+    **(DOCS_OFF if settings.is_deployed else {}),
+)
 
 app.add_middleware(
     CORSMiddleware,
