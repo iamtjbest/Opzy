@@ -130,3 +130,63 @@ describe("apiPublic", () => {
     expect(redirect).not.toHaveBeenCalled();
   });
 });
+
+describe("vouching for the browser's address", () => {
+  const SECRET = "s".repeat(40);
+
+  function forwardedFor(value: string | null) {
+    headerStore.get.mockImplementation(((name: string) =>
+      name === "x-forwarded-for" ? value : "/saved") as () => string);
+  }
+
+  afterEach(() => {
+    headerStore.get.mockImplementation(() => "/saved");
+    vi.unstubAllEnvs();
+  });
+
+  async function sentHeaders() {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(200, {}));
+    await apiPublic("/auth/login", { method: "POST" });
+    return new Headers(fetchMock.mock.calls[0][1]!.headers);
+  }
+
+  it("sends the browser's address with the shared secret", async () => {
+    // Without this every user reaches the API from this server's address, and one
+    // person's bad logins lock the whole site out.
+    vi.stubEnv("INTERNAL_API_SECRET", SECRET);
+    forwardedFor("1.1.1.1, 203.0.113.7");
+
+    const sent = await sentHeaders();
+
+    expect(sent.get("X-Opzy-Client-IP")).toBe("203.0.113.7");
+    expect(sent.get("X-Opzy-Internal-Secret")).toBe(SECRET);
+  });
+
+  it("sends neither header when no secret is configured", async () => {
+    vi.stubEnv("INTERNAL_API_SECRET", "");
+    forwardedFor("203.0.113.7");
+
+    const sent = await sentHeaders();
+
+    expect(sent.has("X-Opzy-Client-IP")).toBe(false);
+    expect(sent.has("X-Opzy-Internal-Secret")).toBe(false);
+  });
+
+  it("sends neither header when the address can't be worked out", async () => {
+    vi.stubEnv("INTERNAL_API_SECRET", SECRET);
+    forwardedFor(null);
+
+    const sent = await sentHeaders();
+
+    expect(sent.has("X-Opzy-Client-IP")).toBe(false);
+    expect(sent.has("X-Opzy-Internal-Secret")).toBe(false);
+  });
+
+  it("goes as many hops back as TRUSTED_PROXY_HOPS says", async () => {
+    vi.stubEnv("INTERNAL_API_SECRET", SECRET);
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "2");
+    forwardedFor("1.1.1.1, 203.0.113.7, 10.0.0.9");
+
+    expect((await sentHeaders()).get("X-Opzy-Client-IP")).toBe("203.0.113.7");
+  });
+});

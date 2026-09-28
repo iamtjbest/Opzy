@@ -45,6 +45,29 @@ class Settings(BaseSettings):
     # entries were written by infrastructure we control; anything left of them is client input.
     trusted_proxy_hops: int = Field(1, alias="TRUSTED_PROXY_HOPS", ge=1)
 
+    # Shared with the Next.js server, which calls this API on the browser's behalf and so
+    # arrives from its own address for every user. A request carrying this secret may say
+    # which browser it's for (X-Opzy-Client-IP); anything else is keyed on its own address.
+    # Without it, every per-IP rate limit is one bucket for the whole site.
+    internal_api_secret: str | None = Field(None, alias="INTERNAL_API_SECRET")
+
+    @model_validator(mode="after")
+    def _require_internal_secret_when_deployed(self) -> "Settings":
+        if self.environment in DEPLOYED_ENVIRONMENTS and (
+            not self.internal_api_secret
+            or len(self.internal_api_secret) < MIN_JWT_SECRET_LENGTH
+        ):
+            raise ValueError(
+                f"INTERNAL_API_SECRET must be at least {MIN_JWT_SECRET_LENGTH} characters "
+                f"when ENVIRONMENT is {self.environment}: without it the frontend's "
+                "requests all share one rate-limit bucket."
+            )
+        return self
+
+    @property
+    def is_deployed(self) -> bool:
+        return self.environment in DEPLOYED_ENVIRONMENTS
+
     @model_validator(mode="after")
     def _require_strong_secret_when_deployed(self) -> "Settings":
         # An HS256 key shorter than its 256-bit output is brute-forceable offline from any

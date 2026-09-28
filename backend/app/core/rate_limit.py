@@ -1,5 +1,7 @@
 """Fixed-window rate limiting, counted in Postgres so it holds across worker processes."""
 
+import hmac
+import ipaddress
 import random
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -15,9 +17,32 @@ from app.models import RateLimitHit
 
 UNKNOWN_IP = "unknown"
 
+# Set by the Next.js server, which calls this API for every browser and so would otherwise
+# put the whole site behind its one address.
+CLIENT_IP_HEADER = "x-opzy-client-ip"
+INTERNAL_SECRET_HEADER = "x-opzy-internal-secret"
+
+
+def _vouched_client_ip(request: Request, settings: Settings) -> str | None:
+    """The browser's address as reported by our own frontend, or None if not vouched for."""
+    secret = settings.internal_api_secret
+    if not secret:
+        return None
+    offered = request.headers.get(INTERNAL_SECRET_HEADER, "")
+    # Constant-time, so the secret can't be recovered a byte at a time from response timing.
+    if not hmac.compare_digest(offered.encode(), secret.encode()):
+        return None
+    try:
+        return str(ipaddress.ip_address(request.headers.get(CLIENT_IP_HEADER, "").strip()))
+    except ValueError:
+        return None
+
 
 def client_ip(request: Request, settings: Settings) -> str:
     """The address the per-IP limit is keyed on."""
+    vouched = _vouched_client_ip(request, settings)
+    if vouched is not None:
+        return vouched
     if settings.trust_proxy_header:
         forwarded = request.headers.get("x-forwarded-for", "")
         hops = [part.strip() for part in forwarded.split(",") if part.strip()]

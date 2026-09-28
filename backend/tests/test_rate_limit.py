@@ -32,6 +32,7 @@ class FakeRequest:
 class FakeSettings:
     trust_proxy_header: bool = False
     trusted_proxy_hops: int = 1
+    internal_api_secret: str | None = None
 
 
 def test_uses_socket_address_by_default():
@@ -65,6 +66,57 @@ def test_falls_back_to_socket_when_header_is_too_short():
 
 def test_unknown_when_there_is_no_peer():
     assert client_ip(FakeRequest(None), FakeSettings()) == "unknown"
+
+
+# --- the frontend vouching for a browser's address -------------------------------------
+
+SECRET = "f" * 40
+FRONTEND = FakeSettings(internal_api_secret=SECRET)
+
+
+def vouched(ip: str, secret: str = SECRET) -> dict[str, str]:
+    return {"x-opzy-client-ip": ip, "x-opzy-internal-secret": secret}
+
+
+def test_frontend_can_say_which_browser_a_request_is_for():
+    # Every call from Next.js arrives from the Next.js server. Without this, one person's
+    # failed logins lock out the whole site.
+    request = FakeRequest("10.0.0.2", vouched("203.0.113.7"))
+
+    assert client_ip(request, FRONTEND) == "203.0.113.7"
+
+
+def test_client_ip_header_is_ignored_without_the_secret():
+    # Anyone can send the header; only the frontend knows the secret.
+    request = FakeRequest("198.51.100.1", {"x-opzy-client-ip": "1.1.1.1"})
+
+    assert client_ip(request, FRONTEND) == "198.51.100.1"
+
+
+def test_client_ip_header_is_ignored_with_a_wrong_secret():
+    request = FakeRequest("198.51.100.1", vouched("1.1.1.1", secret="g" * 40))
+
+    assert client_ip(request, FRONTEND) == "198.51.100.1"
+
+
+def test_client_ip_header_is_ignored_when_no_secret_is_configured():
+    # An unset secret must not match an empty header.
+    request = FakeRequest("198.51.100.1", vouched("1.1.1.1", secret=""))
+
+    assert client_ip(request, FakeSettings()) == "198.51.100.1"
+
+
+def test_vouched_value_must_be_an_ip_address():
+    # Free text would let a compromised or buggy caller mint unlimited distinct keys.
+    request = FakeRequest("10.0.0.2", vouched("not-an-ip"))
+
+    assert client_ip(request, FRONTEND) == "10.0.0.2"
+
+
+def test_vouched_ipv6_is_normalised():
+    request = FakeRequest("10.0.0.2", vouched("2001:DB8:0:0::1"))
+
+    assert client_ip(request, FRONTEND) == "2001:db8::1"
 
 
 NOW = datetime(2026, 9, 20, 12, 7, 30, tzinfo=UTC)

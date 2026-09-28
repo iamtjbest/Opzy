@@ -38,6 +38,17 @@ npm run dev     # http://localhost:3000
 `API_URL` points at the backend and defaults to `http://127.0.0.1:8000`. It is read on the
 server only — do not give it a `NEXT_PUBLIC_` prefix.
 
+`INTERNAL_API_SECRET` must match the backend's. Every API call leaves from this server, so
+without it the API's per-IP rate limits see one address for all users. With it, each call
+carries the browser's address (`X-Opzy-Client-IP`), which the API believes because of the
+secret. Optional locally; the API won't start in staging or production without it. Also
+server-only.
+
+`TRUSTED_PROXY_HOPS` (default `1`) is how many proxies stand in front of Next and append to
+`X-Forwarded-For`: one for Vercel or a single nginx. The browser's address is read that many
+entries from the right, never from the left, which the client controls. The early-access
+form's rate limit uses the same value.
+
 ## Tests
 
 ```bash

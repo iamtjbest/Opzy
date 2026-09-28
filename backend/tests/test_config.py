@@ -11,6 +11,8 @@ RESEND = {
     "RESEND_API_KEY": "re_test",
     "EMAIL_FROM": "Opzy <hello@example.com>",
 }
+# Everything a deployed environment needs on top of the database and JWT secret.
+DEPLOYED = {**RESEND, "INTERNAL_API_SECRET": "i" * 32}
 
 
 def build(**overrides) -> Settings:
@@ -23,7 +25,7 @@ def test_defaults_to_development():
 
 @pytest.mark.parametrize("environment", ["development", "staging", "production"])
 def test_known_environments_accepted(environment):
-    assert build(ENVIRONMENT=environment, **RESEND).environment == environment
+    assert build(ENVIRONMENT=environment, **DEPLOYED).environment == environment
 
 
 @pytest.mark.parametrize("environment", ["prod", "Production", "live", ""])
@@ -72,3 +74,24 @@ def test_console_email_rejected_when_deployed(environment):
     # The console backend only logs, so a deployed app would silently send nothing.
     with pytest.raises(ValidationError):
         build(ENVIRONMENT=environment, EMAIL_BACKEND="console")
+
+
+@pytest.mark.parametrize("environment", ["staging", "production"])
+@pytest.mark.parametrize("secret", [None, "too-short"])
+def test_internal_secret_required_when_deployed(environment, secret):
+    # Without it every browser's requests share the Next.js server's rate-limit bucket.
+    extra = {} if secret is None else {"INTERNAL_API_SECRET": secret}
+    with pytest.raises(ValidationError):
+        build(ENVIRONMENT=environment, **RESEND, **extra)
+
+
+def test_internal_secret_optional_in_development():
+    assert build().internal_api_secret is None
+
+
+@pytest.mark.parametrize(
+    ("environment", "deployed"), [("development", False), ("staging", True), ("production", True)]
+)
+def test_is_deployed(environment, deployed):
+    extra = DEPLOYED if deployed else {}
+    assert build(ENVIRONMENT=environment, **extra).is_deployed is deployed

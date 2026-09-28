@@ -3,6 +3,7 @@ import "server-only";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { pickClientIp, trustedHopsFromEnv } from "@/lib/client-ip";
 import { getToken } from "@/lib/session-cookies";
 
 // Server-side only, so no NEXT_PUBLIC_ prefix: the browser must never learn this.
@@ -11,6 +12,30 @@ export const API_URL = process.env.API_URL ?? "http://127.0.0.1:8000";
 // src/proxy.ts stamps this on every request it matches, so a 401 can send the user back
 // to the page they were on. See "Deviations from the spec" in the plan.
 const PATH_HEADER = "x-opzy-path";
+
+// Every call to the API comes from this server, so to the API every user has this
+// server's address and its per-IP rate limits would be one bucket for the whole site. These
+// say which browser a call is for; the API believes the first only alongside the second.
+// See backend/app/core/rate_limit.py.
+const CLIENT_IP_HEADER = "X-Opzy-Client-IP";
+const INTERNAL_SECRET_HEADER = "X-Opzy-Internal-Secret";
+
+/** The headers that vouch for the browser's address, or none if they can't be built. */
+async function clientIpHeaders(): Promise<Record<string, string>> {
+  // Server-side only, like API_URL. Read per call so tests and restarts see changes.
+  const secret = process.env.INTERNAL_API_SECRET;
+  if (!secret) return {};
+  let forwardedFor: string | null = null;
+  try {
+    forwardedFor = (await headers()).get("x-forwarded-for");
+  } catch {
+    // Outside a request (a build, a script): there is no browser to speak for.
+    return {};
+  }
+  const ip = pickClientIp(forwardedFor, trustedHopsFromEnv(process.env.TRUSTED_PROXY_HOPS));
+  if (!ip) return {};
+  return { [CLIENT_IP_HEADER]: ip, [INTERNAL_SECRET_HEADER]: secret };
+}
 
 export class ApiError extends Error {
   readonly status: number;
@@ -69,6 +94,9 @@ async function readBody(response: Response): Promise<unknown> {
 async function request<T>(path: string, init: RequestInit, token?: string): Promise<T> {
   const requestHeaders = new Headers(init.headers);
   if (token) requestHeaders.set("Authorization", `Bearer ${token}`);
+  for (const [name, value] of Object.entries(await clientIpHeaders())) {
+    requestHeaders.set(name, value);
+  }
 
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
