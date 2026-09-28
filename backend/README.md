@@ -66,7 +66,8 @@ uvicorn app.main:app --reload
 ```
 
 - API: http://localhost:8000
-- Interactive docs: http://localhost:8000/docs
+- Interactive docs: http://localhost:8000/docs (development only: `/docs`, `/redoc` and
+  `/openapi.json` are switched off when `ENVIRONMENT` is `staging` or `production`)
 - Health check: http://localhost:8000/health — returns `200` with `"database": "connected"`
   when Supabase is reachable, `503` when it isn't.
 
@@ -188,10 +189,20 @@ The per-IP key comes from the socket address. Set `TRUST_PROXY_HEADER=true` (wit
 `TRUSTED_PROXY_HOPS`) only when a proxy really is in front; otherwise `X-Forwarded-For` is
 attacker-controlled and a fresh value per request would make the limit a no-op.
 
+**Behind the frontend, that socket address is the Next.js server's for every user**, so
+on its own the limit would be one bucket for the whole site: five signups an hour in total,
+and thirty junk logins from anyone locking everybody out. So the frontend sends the
+browser's address in `X-Opzy-Client-IP`, alongside `X-Opzy-Internal-Secret`, and the API
+believes the first only when the second matches `INTERNAL_API_SECRET` (compared in constant
+time; the value must parse as an IP address). Set the same `INTERNAL_API_SECRET` on both
+servers. It is required once `ENVIRONMENT` is `staging` or `production`, and the API refuses
+to start without it.
+
 ### Changing a password invalidates old tokens
 
 `users.password_changed_at` is set on reset, and `get_current_user` rejects any access
-token whose `iat` predates it. It costs nothing — the dependency already loads the user row.
+token whose `iat` predates it. `iat` has whole-second precision, so the comparison is made
+at the second: a login in the same second as a reset still gets a working token. It costs nothing — the dependency already loads the user row.
 
 Two known trade-offs, both deliberate:
 
