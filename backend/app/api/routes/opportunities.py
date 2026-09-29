@@ -7,6 +7,7 @@ from sqlalchemy import func, or_, select
 
 from app.api.deps import DbSession, get_current_user
 from app.models import Opportunity
+from app.models.base import REMOVED_STATUS
 from app.schemas.opportunity import ListableStatus, OpportunityList, OpportunityRead
 from app.schemas.profile import OpportunityType
 
@@ -70,6 +71,6 @@ async def get_opportunity(opportunity_id: uuid.UUID, db: DbSession) -> Opportuni
     opportunity = await db.get(Opportunity, opportunity_id)
     # Removed opportunities are gone as far as users are concerned; expired ones stay
     # viewable, e.g. from a user's saved list.
-    if opportunity is None or opportunity.status == "removed":
+    if opportunity is None or opportunity.status == REMOVED_STATUS:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Opportunity not found")
     return OpportunityRead.model_validate(opportunity)

@@ -11,6 +11,9 @@ MIN_JWT_SECRET_LENGTH = 32
 Environment = Literal["development", "staging", "production"]
 DEPLOYED_ENVIRONMENTS = ("staging", "production")
 
+# "console" only logs emails, for development and tests.
+EmailBackend = Literal["console", "resend"]
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -28,6 +31,43 @@ class Settings(BaseSettings):
     jwt_algorithm: str = Field("HS256", alias="JWT_ALGORITHM")
     access_token_expire_minutes: int = Field(60, alias="ACCESS_TOKEN_EXPIRE_MINUTES", gt=0)
 
+    email_backend: EmailBackend = Field("console", alias="EMAIL_BACKEND")
+    resend_api_key: str | None = Field(None, alias="RESEND_API_KEY")
+    # The From header, e.g. "Opzy <hello@opzy.app>". Its domain must be verified in Resend.
+    email_from: str | None = Field(None, alias="EMAIL_FROM")
+    # Links in emails point here.
+    frontend_url: str = Field("http://localhost:3000", alias="FRONTEND_URL")
+
+    # Off by default: with no proxy in front, X-Forwarded-For is attacker-controlled, and
+    # trusting it would let one client spoof a fresh IP per request and skip rate limiting.
+    trust_proxy_header: bool = Field(False, alias="TRUST_PROXY_HEADER")
+    # How many proxies append to X-Forwarded-For before it reaches us. The last `hops`
+    # entries were written by infrastructure we control; anything left of them is client input.
+    trusted_proxy_hops: int = Field(1, alias="TRUSTED_PROXY_HOPS", ge=1)
+
+    # Shared with the Next.js server, which calls this API on the browser's behalf and so
+    # arrives from its own address for every user. A request carrying this secret may say
+    # which browser it's for (X-Opzy-Client-IP); anything else is keyed on its own address.
+    # Without it, every per-IP rate limit is one bucket for the whole site.
+    internal_api_secret: str | None = Field(None, alias="INTERNAL_API_SECRET")
+
+    @model_validator(mode="after")
+    def _require_internal_secret_when_deployed(self) -> "Settings":
+        if self.environment in DEPLOYED_ENVIRONMENTS and (
+            not self.internal_api_secret
+            or len(self.internal_api_secret) < MIN_JWT_SECRET_LENGTH
+        ):
+            raise ValueError(
+                f"INTERNAL_API_SECRET must be at least {MIN_JWT_SECRET_LENGTH} characters "
+                f"when ENVIRONMENT is {self.environment}: without it the frontend's "
+                "requests all share one rate-limit bucket."
+            )
+        return self
+
+    @property
+    def is_deployed(self) -> bool:
+        return self.environment in DEPLOYED_ENVIRONMENTS
+
     @model_validator(mode="after")
     def _require_strong_secret_when_deployed(self) -> "Settings":
         # An HS256 key shorter than its 256-bit output is brute-forceable offline from any
@@ -40,6 +80,17 @@ class Settings(BaseSettings):
                 f"JWT_SECRET must be at least {MIN_JWT_SECRET_LENGTH} characters when "
                 f"ENVIRONMENT is {self.environment}."
             )
+        return self
+
+    @model_validator(mode="after")
+    def _require_working_email(self) -> "Settings":
+        if self.environment in DEPLOYED_ENVIRONMENTS and self.email_backend == "console":
+            raise ValueError(
+                f"EMAIL_BACKEND must be resend when ENVIRONMENT is {self.environment}: "
+                "the console backend only logs emails."
+            )
+        if self.email_backend == "resend" and not (self.resend_api_key and self.email_from):
+            raise ValueError("EMAIL_BACKEND=resend needs RESEND_API_KEY and EMAIL_FROM.")
         return self
 
     @property

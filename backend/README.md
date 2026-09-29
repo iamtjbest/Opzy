@@ -66,7 +66,8 @@ uvicorn app.main:app --reload
 ```
 
 - API: http://localhost:8000
-- Interactive docs: http://localhost:8000/docs
+- Interactive docs: http://localhost:8000/docs (development only: `/docs`, `/redoc` and
+  `/openapi.json` are switched off when `ENVIRONMENT` is `staging` or `production`)
 - Health check: http://localhost:8000/health — returns `200` with `"database": "connected"`
   when Supabase is reachable, `503` when it isn't.
 
@@ -76,9 +77,14 @@ Email + password, with stateless JWT access tokens (HS256, 60 minutes by default
 
 | Endpoint | |
 |---|---|
-| `POST /auth/signup` | JSON `{email, password}` → `201` with `access_token` and `user`. `409` if the email is taken. |
-| `POST /auth/login` | Form-encoded `username` (the email) + `password` → `access_token`. `401` on any failure. |
-| `GET /auth/me` | The current user. Needs `Authorization: Bearer <token>`. |
+| `POST /auth/signup` | JSON `{email, password}` → `202`, **no token**, always the same body whether the address is new or already registered. Emails a confirmation link, or a "you already have an account" notice. |
+| `POST /auth/login` | Form-encoded `username` (the email) + `password` → `access_token`. `401` on any failure. Works for unverified accounts. |
+| `GET /auth/me` | The current user, including `email_verified_at`. Needs `Authorization: Bearer <token>`. |
+| `POST /auth/verify-email/confirm` | JSON `{token}` → `200` with `access_token`, so the user lands logged in. `400` for a token that's unknown, already spent, or expired — one message for all three. |
+| `POST /auth/verify-email/resend` | JSON `{email}` → `202`, always the same body. A fresh link if the address needs confirming, a "you're already confirmed" note if it doesn't, nothing at all if it has no account. |
+| `POST /auth/password-reset/request` | JSON `{email}` → `202`, always the same body whether or not the account exists. Emails a single-use link valid for 1 hour. |
+| `POST /auth/password-reset/confirm` | JSON `{token, new_password}` → `204`. `400` for a token that's unknown, already spent, or expired — one message for all three. |
+| `DELETE /account` | JSON `{password}` → `204`. Needs a bearer token **and** the current password; a wrong one is `403`, not `401`. Hard delete: everything cascades from the user row. |
 
 In `/docs`, click **Authorize** and enter your email as the username to call protected routes.
 
@@ -92,19 +98,123 @@ async def something(user: CurrentUser): ...
 ```
 
 Passwords are hashed with Argon2 and must be 8–128 characters. Emails are trimmed and
-lowercased before they're stored or looked up. Not built yet: rate limiting and password
-reset (Sprint 7), refresh tokens, logout, email verification.
+lowercased before they're stored or looked up. Not built yet: refresh tokens,
+logout-everywhere, and changing your email address once verified.
+
+### Email verification
+
+Signing up doesn't log you in. `signup` answers `202` with a fixed body — **the same body
+and status whether the address is new, already registered, or nonsense** — and mails either
+a `FRONTEND_URL/verify-email?token=…` link or, if the address already has an account, a
+notice with no token in it. There is no `409` any more; that status was an
+account-existence oracle for anyone who cared to ask.
+
+The password is hashed *before* the new-versus-existing branch so both paths pay the same
+~64 MB Argon2 cost, and both mails are queued as background tasks, for exactly the reason
+the password-reset section gives below.
+
+`verify-email/confirm` spends the token, stamps `users.email_verified_at` and returns an
+access token — clicking a link only you could have received is at least as good as a
+password, so there's no point bouncing the user to a login form.
+
+**An unverified account is a normal account, except it gets no email.** It can log in,
+onboard, use the feed and change its settings; `send_notifications` simply skips any user
+whose `email_verified_at` is null. Blocking login instead would turn a spam-foldered email
+into a permanent lockout, which is a worse failure than a delayed digest.
+
+**Keep `EMAIL_BACKEND=console` for local work and for the e2e suite.** Signup now sends mail
+on *every* attempt, where before Sprint 9 it sent none, so with `EMAIL_BACKEND=resend` a
+Playwright run makes a real Resend API call per signup. Every one is refused — the suite's
+addresses are `@example.com`, which Resend rejects with `422 validation_error` — and the
+refusal is logged and swallowed rather than surfaced, exactly as designed, so the tests still
+pass. It is just wasted quota and a noisy log.
+
+`email_verification_tokens` is its own table rather than a `purpose` column on
+`password_reset_tokens`. Sharing one table means a reset token could be spent as proof of
+address anywhere a query forgot to filter — two tables make that impossible to write.
+
+### Deleting an account
+
+`DELETE /account` is a hard delete, and wants the current password in the body as well as a
+valid bearer token: a borrowed or stolen session alone should not be able to destroy an
+account irreversibly. A wrong password is a **`403`**, not a `401` — everything in this app
+reads a 401 as "your session expired", and the frontend turns one into a forced logout, so
+answering 401 here would log a user out for a typo. The `ON DELETE CASCADE`s in `../docs/schema.sql` take the profile, its
+skills and interests, every action, the notification log and both token tables with the user
+row, so afterwards the address is free to sign up again as a brand-new account.
+
+### Password reset
+
+`request` mints 32 random bytes, stores only their SHA-256, and emails the token as a
+`FRONTEND_URL/reset-password?token=…` link. `confirm` looks the hash up, sets the new
+Argon2 hash, marks the token spent, and retires every other outstanding token for that
+user. Nothing is revealed either way: an unknown address gets the same `202` and the same
+body as a real one, and a failed send is logged rather than surfaced.
+
+The send is queued as a background task rather than awaited. Only a real account has mail
+to send, so waiting for Resend would make a registered address answer measurably slower
+than an unregistered one — the enumeration the identical response exists to prevent. What
+remains in the request is one local insert; the endpoint is much closer to constant-time,
+not exactly constant-time.
+
+Reset tokens are SHA-256, not Argon2, on purpose — there is nothing to brute-force in a
+256-bit random token, and an Argon2 verify per attempt would be a 64 MB-per-request DoS.
+
+In development `EMAIL_BACKEND=console` just logs the email, so the reset link appears in
+the server log.
+
+### Rate limiting
+
+Fixed windows counted in `rate_limit_hits`, in Postgres rather than in memory so the limit
+still holds if the API ever runs as more than one worker.
+
+| Endpoint | Per IP | Per email |
+|---|---|---|
+| `POST /auth/login` | 30 / 15 min | 10 / 15 min |
+| `POST /auth/signup` | 5 / hour | 3 / hour |
+| `POST /auth/verify-email/resend` | 10 / hour | 3 / hour |
+| `POST /auth/verify-email/confirm` | 10 / hour | — |
+| `POST /auth/password-reset/request` | 10 / hour | 3 / hour |
+| `POST /auth/password-reset/confirm` | 10 / hour | — |
+| `DELETE /account` | 10 / hour | — |
+
+Signup gained a per-email budget in Sprint 9: it now mails the address whether or not that
+address has an account, so without one it would be a way to bomb somebody's inbox.
+
+Over the limit is a `429` with `Retry-After`. The counter increments *before* the password
+is hashed, and a successful login refunds its own hit — so good logins never eat the
+budget, without the race that a check-then-increment would have.
+
+The per-IP key comes from the socket address. Set `TRUST_PROXY_HEADER=true` (with
+`TRUSTED_PROXY_HOPS`) only when a proxy really is in front; otherwise `X-Forwarded-For` is
+attacker-controlled and a fresh value per request would make the limit a no-op.
+
+**Behind the frontend, that socket address is the Next.js server's for every user**, so
+on its own the limit would be one bucket for the whole site: five signups an hour in total,
+and thirty junk logins from anyone locking everybody out. So the frontend sends the
+browser's address in `X-Opzy-Client-IP`, alongside `X-Opzy-Internal-Secret`, and the API
+believes the first only when the second matches `INTERNAL_API_SECRET` (compared in constant
+time; the value must parse as an IP address). Set the same `INTERNAL_API_SECRET` on both
+servers. It is required once `ENVIRONMENT` is `staging` or `production`, and the API refuses
+to start without it.
+
+### Changing a password invalidates old tokens
+
+`users.password_changed_at` is set on reset, and `get_current_user` rejects any access
+token whose `iat` predates it. `iat` has whole-second precision, so the comparison is made
+at the second: a login in the same second as a reset still gets a working token. It costs nothing — the dependency already loads the user row.
 
 Two known trade-offs, both deliberate:
 
 - **Argon2 costs ~64 MB of memory per hash** (`m=65536,t=3,p=4`, pwdlib's recommended
   settings). That's what makes stolen hashes expensive to crack, but it also means
-  concurrent signups are memory-hungry. Rate limiting (Sprint 7) is the fix; don't lower
-  the cost parameters instead.
-- **Signup reveals whether an email is registered**, via the 409. Login deliberately does
-  not — unknown email and wrong password return an identical 401 in the same amount of
-  time. Hiding it at signup as well would mean replying "check your email" to every
-  attempt, which needs the email sending built in Sprint 6.
+  concurrent signups are memory-hungry. Rate limiting is the mitigation; don't lower the
+  cost parameters instead.
+- **Signup still reveals whether an email is registered**, via the 409. Login and password
+  reset deliberately do not. Hiding it at signup means replying "check your email" to every
+  attempt, so signup can no longer log you straight in — that's an email-verification
+  feature, deferred to its own sprint. Per-IP throttling makes bulk enumeration slow in the
+  meantime.
 
 `ENVIRONMENT` must be `development`, `staging` or `production`; an unrecognised value stops
 the app at startup rather than silently skipping the `JWT_SECRET` strength check that
@@ -141,7 +251,8 @@ One profile per user, holding the onboarding fields. Both routes need
 
 ## Opportunities
 
-Read-only for now. Both routes need `Authorization: Bearer <token>`.
+Read-only; users act on opportunities through [User actions](#user-actions). Both routes
+need `Authorization: Bearer <token>`.
 
 | Endpoint | |
 |---|---|
@@ -188,9 +299,13 @@ Query: `category` (repeatable), `limit` (1–100, default 20), `offset`.
 
 ```json
 {"items": [{"opportunity": {…}, "score": 73,
-            "explanation": "Recommended because you study Computer Engineering, you know Python, and you're looking for internships. It's open to undergraduates."}],
+            "explanation": "Recommended because you study Computer Engineering, you know Python, and you're looking for internships. It's open to undergraduates.",
+            "user_action": null}],
  "total": 10, "limit": 20, "offset": 0}
 ```
+
+Opportunities the user has dismissed or applied to are left out before ranking, so `total`
+and the pages only count what's shown. Saved ones stay in, with `"user_action": "saved"`.
 
 How matching works (`app/matching/`):
 
@@ -204,6 +319,130 @@ How matching works (`app/matching/`):
 - **Ranking**: score, then soonest deadline (rolling last), then title.
 - **Explanation**: every match gets one, and it only claims eligibility that was checked.
 - Computed per request; nothing is written to `opportunity_matches` yet.
+
+## User actions
+
+Save, dismiss or mark as applied. All three routes need `Authorization: Bearer <token>`, but
+not a profile.
+
+| Endpoint | |
+|---|---|
+| `POST /opportunities/{id}/actions` | Record an action; returns the user's state for that opportunity after it. `404` if the opportunity doesn't exist or is `removed`; expired ones are fine. |
+| `GET /saved` | Opportunities the user has saved, most recently saved first. |
+| `GET /applications` | Opportunities the user has marked applied, most recent first. |
+
+```json
+POST /opportunities/{id}/actions
+{"action": "dismissed", "dismiss_reason": "not_eligible"}
+
+200
+{"opportunity_id": "…", "action": "dismissed", "dismiss_reason": "not_eligible",
+ "actioned_at": "2026-09-19T10:00:00Z"}
+```
+
+- `action` is `saved`, `unsaved` (the Saved screen's Remove), `dismissed` or `applied`.
+- `dismiss_reason` is optional and only allowed with `dismissed` (otherwise `422`). The
+  allowed codes are `not_relevant`, `pay_too_low`, `not_eligible`, `not_interested_org`
+  and `other`, one for each option in the frontend's dismiss dialog.
+- `unsaved` clears whatever state the opportunity had. The response then has `action`,
+  `dismiss_reason` and `actioned_at` all `null`.
+- Actions replace each other: the latest one is the state. So saving a dismissed opportunity
+  undoes the dismiss, and applying to a saved one moves it from Saved to Applications.
+- Repeating the current state writes nothing and returns it unchanged. That includes a
+  dismiss with no reason, which keeps the reason already given; a different reason is
+  recorded.
+
+The lists take `limit` (1–100, default 20) and `offset`, and return
+`{"items": [{"opportunity": {…}, "actioned_at": "…"}], "total", "limit", "offset"}`.
+Expired opportunities stay in them; `removed` ones don't.
+
+How it's stored: `user_opportunity_actions` is an append-only log, one row per action, so
+history is kept. The latest row per user and opportunity is the current state. That rule
+lives in one place, `latest_actions` in `app/actions.py`. Each request takes a
+per-user-and-opportunity advisory lock before reading the state, so simultaneous identical
+requests (a double-click) log one row, not two.
+
+## Notifications
+
+Users are emailed about **new strong matches**: opportunities scoring at least
+`STRONG_MATCH_SCORE` (60, in `app/notifications/run.py`) that were added after they signed
+up, that they haven't saved, dismissed or applied to, and that haven't been emailed to them
+before. `match_notifications` records every one sent.
+
+How often depends on their cadence:
+
+| Cadence | Emails |
+|---|---|
+| `instant` | on the next run after a match appears |
+| `daily` | at most one digest a day |
+| `weekly` | at most one digest a week |
+| `off` | none |
+
+Nothing is sent when there's nothing new. Each email lists up to 10 matches, best first,
+and links to the rest on the feed.
+
+`GET /settings/notifications` returns `{"cadence": "daily", "channel": "email"}`.
+`PUT /settings/notifications` with `{"cadence": "weekly"}` changes it. The channel is
+always `email` for now.
+
+Sending is a script, run on a schedule:
+
+```bash
+python -m scripts.send_notifications
+# cron, every 15 minutes:
+# */15 * * * * cd /path/to/backend && .venv/bin/python -m scripts.send_notifications
+```
+
+It's safe to re-run and to overlap: only one run works at a time. A refused email (the
+provider rejected it) is retried cleanly on the next run. A database error is handled
+differently depending on when it struck: if it happened before sending, the user is
+retried next run like a refusal; if it happened after the email had already gone out (for
+example, the commit that records it failed), the user may simply be emailed again next
+run rather than cleanly retried. Either kind of failure makes the script exit 1.
+`EMAIL_BACKEND=console` (the default) only logs emails. Set `EMAIL_BACKEND=resend`,
+`RESEND_API_KEY` and `EMAIL_FROM` to send for real, and `FRONTEND_URL` for the links.
+Deployed environments refuse to start with the console backend.
+
+### Testing it for real, without mailing strangers
+
+Before running with `EMAIL_BACKEND=resend`, **check who would receive mail**:
+
+```bash
+docker compose exec -T db psql -U opzy -d opzy \
+  -c "select email, notification_cadence from users;"
+```
+
+Testing leaves behind `@example.com` users. That's a reserved domain that can never receive
+mail, so every one is a guaranteed bounce, and bounces damage the sending reputation of the
+domain you send from. Set everything to `off`, then enable only an address you control:
+
+```bash
+docker compose exec -T db psql -U opzy -d opzy \
+  -c "delete from users where email like '%@example.com';" \
+  -c "update users set notification_cadence = 'off';" \
+  -c "update users set notification_cadence = 'instant' where email = 'you@example.org';"
+```
+
+Never point a test run at the production database: the script emails whoever it finds there.
+
+Four things then decide whether anything actually sends, and all four are easy to mistake
+for a broken setup:
+
+- **The address must be confirmed.** Since Sprint 9 a user with `email_verified_at` null is
+  skipped entirely, so an account created by hand or by the test suite sends nothing until
+  it verifies. To enable one for testing:
+  `update users set email_verified_at = now() where email = 'you@example.org';`
+- **The profile must be filled in.** Only matches scoring 60 or more
+  (`STRONG_MATCH_SCORE`) are emailed. A profile with no nationality or education level
+  scores everything below that, so a run reports `Emailed 0 user(s)` and exits 0.
+- **The opportunity must be newer than the account** — `Opportunity.created_at >=
+  user.created_at`. This is deliberate, so a new signup isn't mailed the whole back
+  catalogue, but it means seeded opportunities never notify an account created after them.
+  To test, insert one dated `now()`.
+- **Resend's test sender only mails you.** With `EMAIL_FROM=Opzy <onboarding@resend.dev>`
+  and no verified domain, any recipient other than the Resend account's own address is
+  refused with `403 validation_error`. The script logs it, marks the user for retry, and
+  exits 1 — working as designed, not a bug.
 
 ## Seeding opportunities
 
@@ -264,12 +503,18 @@ app/
   models/              SQLAlchemy models mirroring the live schema
   core/security.py     password hashing, JWT create/decode
   api/deps.py          shared dependencies (DbSession, CurrentUser)
+  matching/            feed eligibility, scoring and explanations (no DB access)
+  actions.py           a user's current state per opportunity, from the actions log
   api/routes/          one module per resource
   schemas/             request/response models
+  email.py             sending email: console backend for dev, Resend for real
+  user_facts.py        what matching knows about a user, from their profile
+  notifications/       who's due an email, what it says, and the run that sends them
 alembic/               migrations (see below)
 tests/                 pytest suite
 scripts/check_db.py    schema/connection verification
 scripts/seed_opportunities.py  load opportunities from the tracking sheet
+scripts/send_notifications.py  the scheduled job that emails new strong matches
 ```
 
 ## Things worth knowing

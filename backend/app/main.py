@@ -1,22 +1,46 @@
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, feed, health, opportunities, profile
+from app.api.routes import (
+    account,
+    actions,
+    auth,
+    feed,
+    health,
+    notification_settings,
+    opportunities,
+    profile,
+)
 from app.core.config import get_settings
 from app.core.db import engine
+from app.email import EMAIL_TIMEOUT_SECONDS
 
 settings = get_settings()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    yield
+    # One client for the app's lifetime: connection reuse, and somewhere for the email
+    # backend to live that isn't rebuilt per request.
+    async with httpx.AsyncClient(timeout=EMAIL_TIMEOUT_SECONDS) as http:
+        app.state.http = http
+        yield
     await engine.dispose()
 
 
-app = FastAPI(title="Opzy API", version="0.1.0", lifespan=lifespan)
+# The interactive docs are a map of every endpoint and its inputs. Handy locally; nobody
+# outside needs one of the deployed API.
+DOCS_OFF = {"docs_url": None, "redoc_url": None, "openapi_url": None}
+
+app = FastAPI(
+    title="Opzy API",
+    version="0.1.0",
+    lifespan=lifespan,
+    **(DOCS_OFF if settings.is_deployed else {}),
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -31,3 +55,6 @@ app.include_router(auth.router)
 app.include_router(profile.router)
 app.include_router(opportunities.router)
 app.include_router(feed.router)
+app.include_router(actions.router)
+app.include_router(notification_settings.router)
+app.include_router(account.router)

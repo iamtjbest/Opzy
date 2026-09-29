@@ -15,7 +15,7 @@ exactly with no translation step needed. Works on Postgres regardless of host
 | email | text, unique | |
 | password_hash | text | |
 | created_at | timestamp | |
-| notification_cadence | enum(instant, daily, weekly) | matches Settings screen, default 'daily' |
+| notification_cadence | enum(instant, daily, weekly, off) | matches Settings screen, default 'daily'; 'off' sends no emails |
 | notification_channel | enum(email, whatsapp) | default 'email' |
 
 ## profiles
@@ -97,20 +97,39 @@ The output of the matching logic, one row per user/opportunity pair that was sco
 | match_reasons | text[] | short phrases, matches the reason chips shown in the feed and detail screen |
 | created_at | timestamp | |
 
+## match_notifications
+
+One row per opportunity emailed to a user as a new strong match (Sprint 6). The unique
+index on (user_id, opportunity_id) means a match is never emailed twice. The user's latest
+`sent_at` is when they were last emailed, which is what daily and weekly digests are
+timed from.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid, PK | |
+| user_id | uuid, FK -> users.id | cascade delete |
+| opportunity_id | uuid, FK -> opportunities.id | cascade delete |
+| score | integer | the match score when it was emailed |
+| sent_at | timestamp | when the email went out |
+
 ## user_opportunity_actions
 
 Matches the Save/Dismiss/Mark-applied actions on the Feed, Detail, and Saved & Applications
 screens. One row per action, not one column per state, so the history isn't lost if someone
-saves, then later dismisses.
+saves, then later dismisses. A user's **current state** for an opportunity is its most
+recent row (`created_at`, then `id`). Removing a saved item writes an `unsaved` row, which
+leaves no current state.
 
 | Column | Type | Notes |
 |---|---|---|
 | id | uuid, PK | |
 | user_id | uuid, FK -> users.id | |
 | opportunity_id | uuid, FK -> opportunities.id | |
-| action | enum(saved, dismissed, applied) | |
-| dismiss_reason | text, nullable | matches the "Not for you? Tell us why" link on the detail screen |
+| action | enum(saved, unsaved, dismissed, applied) | `unsaved` added in Sprint 5 |
+| dismiss_reason | text, nullable | matches the "Not for you? Tell us why" link on the detail screen. The API only accepts `not_relevant`, `pay_too_low`, `not_eligible`, `not_interested_org`, `other` |
 | created_at | timestamp | |
+
+**Indexes:** `user_id`, `opportunity_id`, `user_id, opportunity_id, created_at` (latest action lookup)
 
 ---
 

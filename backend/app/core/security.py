@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -35,7 +37,10 @@ def create_access_token(user_id: uuid.UUID) -> str:
     payload = {
         "sub": str(user_id),
         "type": ACCESS_TOKEN_TYPE,
-        "iat": now,
+        # A float, not the datetime: PyJWT would truncate a datetime to whole seconds, and
+        # then a login in the same second as a password reset would get a token that
+        # get_current_user already counts as predating the reset.
+        "iat": now.timestamp(),
         "exp": now + timedelta(minutes=settings.access_token_expire_minutes),
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
@@ -57,3 +62,37 @@ def decode_access_token(token: str) -> uuid.UUID:
         return uuid.UUID(payload["sub"])
     except (TypeError, ValueError) as exc:
         raise jwt.InvalidTokenError("Malformed subject") from exc
+
+
+def decode_access_token_claims(token: str) -> dict:
+    """The full validated payload, for callers that need more than the subject."""
+    settings = get_settings()
+    payload = jwt.decode(
+        token,
+        settings.jwt_secret,
+        algorithms=[settings.jwt_algorithm],
+        options={"require": ["exp", "sub", "type", "iat"]},
+    )
+    if payload["type"] != ACCESS_TOKEN_TYPE:
+        raise jwt.InvalidTokenError("Not an access token")
+    return payload
+
+
+RESET_TOKEN_TTL = timedelta(hours=1)
+# Longer than a reset's hour: a reset is answering something you just asked for, while a
+# verification link often gets opened the next morning. Still short enough that an
+# abandoned link in an old inbox stops working.
+VERIFICATION_TOKEN_TTL = timedelta(hours=24)
+# 32 bytes of entropy. Deliberately not Argon2-hashed: there is nothing to brute-force in a
+# 256-bit random token, and an Argon2 verify per attempt would be a 64 MB-per-request DoS.
+URL_TOKEN_BYTES = 32
+
+
+def generate_url_token() -> str:
+    """A random token to put in an emailed link. Shared by reset and verification."""
+    return secrets.token_urlsafe(URL_TOKEN_BYTES)
+
+
+def hash_url_token(token: str) -> str:
+    """What gets stored. A stolen database row can't be turned back into a usable link."""
+    return hashlib.sha256(token.encode()).hexdigest()

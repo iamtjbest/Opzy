@@ -41,6 +41,13 @@ class UserOpportunityAction(Base):
     __table_args__ = (
         Index("user_opportunity_actions_user_id_idx", "user_id"),
         Index("user_opportunity_actions_opportunity_id_idx", "opportunity_id"),
+        # Finds a user's latest action per opportunity (app/actions.py).
+        Index(
+            "user_opportunity_actions_user_opp_created_idx",
+            "user_id",
+            "opportunity_id",
+            "created_at",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
