@@ -19,6 +19,7 @@ from app.core.security import (
     hash_url_token,
 )
 from app.email import EmailMessage
+from app.email_template import button, link, muted, wrap
 from app.models import EmailVerificationToken, User
 
 VERIFY_SUBJECT = "Confirm your email address"
@@ -27,19 +28,25 @@ EXISTS_SUBJECT = "You already have an Opzy account"
 
 def compose_verification_email(to: str, token: str, frontend_url: str) -> EmailMessage:
     base = frontend_url.rstrip("/")
-    link = f"{base}/verify-email?token={quote(token, safe='')}"
+    verify_link = f"{base}/verify-email?token={quote(token, safe='')}"
     text = (
         "Welcome to Opzy. Confirm this address to finish setting up your account:\n\n"
-        f"{link}\n\n"
+        f"{verify_link}\n\n"
         "The link works once and expires in 24 hours. If you didn't sign up for Opzy, "
         "ignore this email — no account will be created without this step."
     )
-    html = (
-        "<p>Welcome to Opzy. Confirm this address to finish setting up your account.</p>"
-        f'<p><a href="{escape(link, quote=True)}">Confirm my email</a></p>'
-        "<p>The link works once and expires in 24 hours. If you didn't sign up for Opzy, "
-        "ignore this email — no account will be created without this step.</p>"
+    cta = button("Confirm my email", escape(verify_link, quote=True))
+    footnote = muted(
+        "The link works once and expires in 24 hours. If you didn't sign up for Opzy, "
+        "ignore this email — no account will be created without this step."
     )
+    body = (
+        '<p style="margin:0 0 18px 0;">Welcome to Opzy. Confirm this address to finish '
+        "setting up your account.</p>"
+        f'<p style="margin:0 0 18px 0;">{cta}</p>'
+        f'<p style="margin:0;">{footnote}</p>'
+    )
+    html = wrap(body, preheader="Confirm your email to finish setting up Opzy")
     return EmailMessage(to=to, subject=VERIFY_SUBJECT, text=text, html=html)
 
 
@@ -51,35 +58,44 @@ def compose_account_exists_email(to: str, frontend_url: str) -> EmailMessage:
     difference shows — in the one inbox that is entitled to know.
     """
     base = frontend_url.rstrip("/")
+    login_link = f"{base}/login"
+    forgot_link = f"{base}/forgot-password"
     text = (
         "Someone tried to sign up for Opzy with this address, which already has an "
         f"account. Nothing has changed.\n\n"
-        f"Log in: {base}/login\n"
-        f"Forgot your password? {base}/forgot-password\n\n"
+        f"Log in: {login_link}\n"
+        f"Forgot your password? {forgot_link}\n\n"
         "If this wasn't you, you can safely ignore this email."
     )
-    html = (
-        "<p>Someone tried to sign up for Opzy with this address, which already has an "
-        "account. Nothing has changed.</p>"
-        f'<p><a href="{escape(base + "/login", quote=True)}">Log in</a> · '
-        f'<a href="{escape(base + "/forgot-password", quote=True)}">Forgot your password?'
-        "</a></p>"
-        "<p>If this wasn't you, you can safely ignore this email.</p>"
+    cta = button("Log in", escape(login_link, quote=True))
+    secondary = link("Forgot your password?", escape(forgot_link, quote=True))
+    footnote = muted("If this wasn't you, you can safely ignore this email.")
+    body = (
+        '<p style="margin:0 0 18px 0;">Someone tried to sign up for Opzy with this '
+        "address, which already has an account. Nothing has changed.</p>"
+        f'<p style="margin:0 0 12px 0;">{cta}</p>'
+        f'<p style="margin:0 0 18px 0;">{secondary}</p>'
+        f'<p style="margin:0;">{footnote}</p>'
     )
+    html = wrap(body, preheader="You already have an Opzy account")
     return EmailMessage(to=to, subject=EXISTS_SUBJECT, text=text, html=html)
 
 
 def compose_already_verified_email(to: str, frontend_url: str) -> EmailMessage:
     """Sent when a verified account asks for another verification link."""
     base = frontend_url.rstrip("/")
+    login_link = f"{base}/login"
     text = (
         "This address is already confirmed, so there's nothing left to do.\n\n"
-        f"Log in: {base}/login"
+        f"Log in: {login_link}"
     )
-    html = (
-        "<p>This address is already confirmed, so there's nothing left to do.</p>"
-        f'<p><a href="{escape(base + "/login", quote=True)}">Log in</a></p>'
+    cta = button("Log in", escape(login_link, quote=True))
+    body = (
+        '<p style="margin:0 0 18px 0;">This address is already confirmed, so there\'s '
+        "nothing left to do.</p>"
+        f'<p style="margin:0;">{cta}</p>'
     )
+    html = wrap(body, preheader="Your email is already confirmed")
     return EmailMessage(to=to, subject=EXISTS_SUBJECT, text=text, html=html)
 
 
