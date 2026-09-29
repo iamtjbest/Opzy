@@ -16,6 +16,9 @@ const SECURITY_HEADERS = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Traces and copies only the files a production server actually needs into
+  // .next/standalone, so the deploy image doesn't carry the full node_modules tree.
+  output: "standalone",
   async headers() {
     return [{ source: "/:path*", headers: SECURITY_HEADERS }];
   },
