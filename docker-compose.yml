@@ -1,0 +1,83 @@
+# Full local stack in Docker: database + backend + frontend, each built and run the
+# same way they will be in production (backend/Dockerfile, frontend/Dockerfile).
+#
+# This is a different thing from backend/docker-compose.yml, which only runs Postgres
+# so you can run the backend/frontend natively with `uvicorn`/`npm run dev` for fast
+# iteration (hot reload, no rebuild on every change). Use *this* file when you want to
+# see the whole app run exactly as it will on Render — good for a first hands-on look
+# at Docker, or for catching a Dockerfile problem before it reaches a real deploy.
+#
+# Usage, from the repo root:
+#   docker compose up --build
+# Then open http://localhost:3000. First run downloads base images and installs
+# dependencies inside the containers, so it's slower than every run after.
+#
+# All values below are local-only throwaways — never reuse them anywhere real.
+
+services:
+  db:
+    image: postgres:16
+    container_name: opzy-postgres-full
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: opzy
+      POSTGRES_PASSWORD: opzy_local_dev
+      POSTGRES_DB: opzy
+    ports:
+      - "55432:5432"
+    volumes:
+      - opzy_full_pgdata:/var/lib/postgresql/data
+      - ./docs/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./docs/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U opzy -d opzy"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    container_name: opzy-backend-full
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # `db` here is this compose network's service name, not localhost — containers
+      # reach each other by service name, not by the host ports above.
+      DATABASE_URL: postgresql://opzy:opzy_local_dev@db:5432/opzy
+      JWT_SECRET: local-docker-dev-secret-not-for-anything-real
+      ENVIRONMENT: development
+      EMAIL_BACKEND: console
+      FRONTEND_URL: http://localhost:3000
+      CORS_ORIGINS: http://localhost:3000
+      SQL_ECHO: "false"
+    ports:
+      - "8000:8000"
+    # This image has no migrations step built in (see backend/Dockerfile) — run them
+    # once, after the database is up, the first time you bring this stack up:
+    #   docker compose exec backend alembic upgrade head
+    # (docs/seed.sql already loaded 4 sample opportunities automatically when the `db`
+    # container first initialized — see its volumes above — so there's nothing further
+    # to seed for a first look. Loading the full sheet from
+    # docs/OPZY_SOURCE_TRACKING.xlsx has to run outside this container, since that file
+    # lives outside the backend/ build context: from the backend/ directory, with a
+    # local .env pointed at DATABASE_URL=...@localhost:55432/opzy (the host port
+    # above, not the in-network one), run `python -m scripts.seed_opportunities`.)
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: opzy-frontend-full
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      API_URL: http://backend:8000
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+
+volumes:
+  opzy_full_pgdata:
