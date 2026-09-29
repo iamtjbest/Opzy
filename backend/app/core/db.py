@@ -36,9 +36,16 @@ def build_engine_args(url: str) -> tuple[str, dict, dict]:
 
     # Supabase's pooled endpoint runs pgbouncer in transaction mode, where prepared
     # statements leak across pooled sessions and collide. Both caches must be off.
+    #
+    # Both belong in connect_args: asyncpg's own `statement_cache_size` is a connect()
+    # kwarg, and SQLAlchemy's asyncpg dialect also only recognizes
+    # `prepared_statement_cache_size` when it arrives via connect_args (it pops it out
+    # of there when building the DBAPI connection) — passing it to create_async_engine
+    # directly, as a bare keyword argument, raises TypeError, since the engine itself
+    # has no such argument.
     if port == SUPABASE_POOLER_PORT:
         connect_args["statement_cache_size"] = 0
-        engine_kwargs["prepared_statement_cache_size"] = 0
+        connect_args["prepared_statement_cache_size"] = 0
 
     async_url = urlunsplit(
         ("postgresql+asyncpg", parsed.netloc, parsed.path, urlencode(query), parsed.fragment)
