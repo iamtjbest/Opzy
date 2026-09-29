@@ -4,6 +4,7 @@ from datetime import date
 from html import escape
 
 from app.email import EmailMessage
+from app.email_template import BLUE, INK, SLATE, card, muted, pill, wrap
 from app.matching.feed import Match
 from app.models.base import DAILY, INSTANT, WEEKLY
 
@@ -41,25 +42,43 @@ def compose_match_email(
         heading = opportunity.title
         if opportunity.organization:
             heading += f" — {opportunity.organization}"
-        link = f"{base}/opportunities/{opportunity.id}"
+        opp_link = f"{base}/opportunities/{opportunity.id}"
         deadline = _deadline(opportunity.deadline)
-        text_items.append(f"{heading}\n{deadline}\n{match.explanation}\n{link}")
+        text_items.append(
+            f"{heading} ({match.score}% match)\n{deadline}\n{match.explanation}\n{opp_link}"
+        )
         html_items.append(
-            f'<li><a href="{escape(link)}"><strong>{escape(heading)}</strong></a><br>'
-            f"{escape(deadline)}<br>{escape(match.explanation)}</li>"
+            card(
+                f'<a href="{escape(opp_link)}" style="color:{INK};text-decoration:none;'
+                f'font-weight:700;font-size:15px;">{escape(heading)}</a><br>'
+                f'<div style="margin:6px 0;">'
+                f'{pill(f"{match.score}% match", tone="success")} '
+                f'{pill(escape(deadline))}</div>'
+                f"{muted(escape(match.explanation))}"
+            )
         )
 
     hidden = len(matches) - MAX_ITEMS_PER_EMAIL
-    more = [f"And {hidden} more on your feed: {base}/feed"] if hidden > 0 else []
-    footer = (
-        f"You get these emails {HOW_OFTEN[cadence]}. "
-        f"Change that or turn them off: {base}/settings"
-    )
+    feed_link = f"{base}/feed"
+    settings_link = f"{base}/settings"
+    more = [f"And {hidden} more on your feed: {feed_link}"] if hidden > 0 else []
+    footer_note = f"You get these emails {HOW_OFTEN[cadence]}. Change that or turn them off:"
+    footer = f"{footer_note} {settings_link}"
 
     text = "\n\n".join([intro, *text_items, *more, footer])
-    html = (
-        f"<p>{escape(intro)}</p><ul>{''.join(html_items)}</ul>"
-        + "".join(f"<p>{escape(line)}</p>" for line in more)
-        + f"<p>{escape(footer)}</p>"
+    more_html = (
+        f'<p style="margin:4px 0 16px 0;">And {hidden} more on '
+        f'<a href="{escape(feed_link)}" style="color:{BLUE};">your feed</a>.</p>'
+        if hidden > 0
+        else ""
     )
+    html_body = (
+        f'<p style="margin:0 0 16px 0;">{escape(intro)}</p>'
+        + "".join(html_items)
+        + more_html
+        + f'<p style="margin:8px 0 0 0;">{muted(escape(footer_note))} '
+        f'<a href="{escape(settings_link)}" style="color:{SLATE};text-decoration:underline;">'
+        f"Notification settings</a></p>"
+    )
+    html = wrap(html_body, preheader=intro)
     return EmailMessage(to=to, subject=subject, text=text, html=html)

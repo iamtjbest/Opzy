@@ -14,6 +14,7 @@ from app.core.security import (
     hash_url_token,
 )
 from app.email import EmailMessage
+from app.email_template import button, muted, wrap
 from app.models import PasswordResetToken, User
 
 SUBJECT = "Reset your Opzy password"
@@ -27,12 +28,19 @@ def compose_password_reset_email(to: str, token: str, frontend_url: str) -> Emai
         "The link works once and expires in 1 hour. If this wasn't you, ignore this "
         "email — your password hasn't changed."
     )
-    html = (
-        "<p>Someone asked to reset the password for this Opzy account.</p>"
-        f'<p><a href="{escape(link, quote=True)}">Choose a new password</a></p>'
-        "<p>The link works once and expires in 1 hour. If this wasn't you, ignore this "
-        "email — your password hasn't changed.</p>"
+    safe_link = escape(link, quote=True)
+    cta = button("Choose a new password", safe_link)
+    footnote = muted(
+        "The link works once and expires in 1 hour. If this wasn't you, ignore this "
+        "email — your password hasn't changed."
     )
+    body = (
+        '<p style="margin:0 0 18px 0;">Someone asked to reset the password for this '
+        "account.</p>"
+        f'<p style="margin:0 0 18px 0;">{cta}</p>'
+        f'<p style="margin:0;">{footnote}</p>'
+    )
+    html = wrap(body, preheader="Reset your password")
     return EmailMessage(to=to, subject=SUBJECT, text=text, html=html)
 
 
