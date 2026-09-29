@@ -7,10 +7,10 @@ FROM python:3.11-slim AS build
 
 WORKDIR /app
 
-# Needed to build argon2 (pwdlib[argon2]) and asyncpg wheels on slim.
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
+# No apt-get/build-essential here on purpose: argon2 (pwdlib[argon2]) and asyncpg both
+# ship prebuilt manylinux wheels for this Python version, so nothing needs compiling.
+# Installing a C toolchain just to not use it was the extra step that used to fail here
+# on a slow/unstable connection (deb.debian.org timeouts) — removing it fixes that.
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
