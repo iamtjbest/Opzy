@@ -1,0 +1,95 @@
+# Render Blueprint for Opzy. Deploy: connect this repo in the Render dashboard and
+# it reads this file automatically ("New +" -> "Blueprint").
+#
+# What this does NOT do: create the Postgres database (Supabase is used instead, not
+# Render's own Postgres — see docs/UNFINISHED_BUSINESS.md) or set any secret values.
+# Every env var marked `sync: false` has to be filled in by hand in the Render
+# dashboard after the first blueprint deploy — Render refuses to store a secret in a
+# file that's committed to git, which is exactly right.
+
+services:
+  - type: web
+    name: opzy-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: starter
+    region: frankfurt
+    healthCheckPath: /health
+    # Runs once per deploy, before the new version takes traffic — not on every
+    # restart, so a scale event or crash-restart doesn't replay migrations.
+    preDeployCommand: alembic upgrade head
+    envVars:
+      - key: DATABASE_URL
+        sync: false # Supabase pooled connection string, port 6543
+      - key: JWT_SECRET
+        sync: false # 32+ chars — generate with: python -c "import secrets; print(secrets.token_urlsafe(48))"
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "60"
+      - key: ENVIRONMENT
+        value: production
+      - key: CORS_ORIGINS
+        sync: false # the frontend's deployed URL, e.g. https://opzy-frontend.onrender.com
+      - key: EMAIL_BACKEND
+        value: resend
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false # e.g. "Opzy <hello@yourdomain>" — domain must be verified in Resend
+      - key: FRONTEND_URL
+        sync: false # the frontend's deployed URL — every email link points here
+      - key: TRUST_PROXY_HEADER
+        value: "true" # Render sits in front of the API as a proxy
+      - key: TRUSTED_PROXY_HOPS
+        value: "1"
+      - key: INTERNAL_API_SECRET
+        sync: false # 32+ chars, same value the frontend service uses below
+      - key: SQL_ECHO
+        value: "false"
+
+  - type: web
+    name: opzy-frontend
+    runtime: docker
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
+    plan: starter
+    region: frankfurt
+    envVars:
+      - key: API_URL
+        sync: false # opzy-backend's internal Render URL, e.g. http://opzy-backend:8000 if on a private network, otherwise its public https URL
+      - key: INTERNAL_API_SECRET
+        sync: false # same value as the backend's INTERNAL_API_SECRET above
+      - key: TRUSTED_PROXY_HOPS
+        value: "1"
+      - key: NODE_ENV
+        value: production
+
+  - type: cron
+    name: opzy-send-notifications
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    dockerCommand: python -m scripts.send_notifications
+    schedule: "*/15 * * * *"
+    plan: starter
+    envVars:
+      - key: DATABASE_URL
+        sync: false # same value as opzy-backend's
+      - key: JWT_SECRET
+        sync: false # same value as opzy-backend's
+      - key: ENVIRONMENT
+        value: production
+      - key: EMAIL_BACKEND
+        value: resend
+      - key: RESEND_API_KEY
+        sync: false # same value as opzy-backend's
+      - key: EMAIL_FROM
+        sync: false # same value as opzy-backend's
+      - key: FRONTEND_URL
+        sync: false # same value as opzy-backend's
+      - key: INTERNAL_API_SECRET
+        sync: false # same value as opzy-backend's — Settings requires it at import time
+        # whenever ENVIRONMENT is production, even though this job makes no HTTP calls
+        # that use it.
