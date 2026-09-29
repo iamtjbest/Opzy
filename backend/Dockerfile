@@ -15,7 +15,10 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# --timeout/--retries: pip's default 15s read timeout is short for a slow or unstable
+# connection — one stalled chunk on a large wheel (pydantic, sqlalchemy, ...) fails the
+# whole build. This retries a stalled download instead of giving up on the first one.
+RUN pip install --no-cache-dir --timeout 120 --retries 5 -r requirements.txt
 
 
 FROM python:3.11-slim AS runtime
