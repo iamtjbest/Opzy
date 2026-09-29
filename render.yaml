@@ -7,13 +7,21 @@
 # dashboard after the first blueprint deploy — Render refuses to store a secret in a
 # file that's committed to git, which is exactly right.
 
+# Free-tier notes: Render's free web services spin down after 15 minutes of no
+# traffic and take ~1 minute to wake back up on the next request — fine for early
+# testing, not for a real launch. Cron jobs have no free tier at all (Render's own
+# docs: "Other service types don't support Free instances"), so opzy-send-notifications
+# below still asks for payment info even with everything else on `free`. If you want
+# match emails to go out automatically this week, that one service needs a card on
+# file; backend and frontend don't.
+
 services:
   - type: web
     name: opzy-backend
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
-    plan: starter
+    plan: free
     region: frankfurt
     healthCheckPath: /health
     # Runs once per deploy, before the new version takes traffic — not on every
@@ -54,7 +62,7 @@ services:
     runtime: docker
     dockerfilePath: ./frontend/Dockerfile
     dockerContext: ./frontend
-    plan: starter
+    plan: free
     region: frankfurt
     envVars:
       - key: API_URL
