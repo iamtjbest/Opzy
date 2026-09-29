@@ -29,8 +29,10 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 COPY . .
 
-# Runs as non-root.
-RUN useradd --create-home --uid 1000 appuser
+# Runs as non-root. No --uid pinned: python:3.11-slim doesn't reserve 1000 the way
+# node's official image does, but letting useradd pick a free id avoids the whole class
+# of "UID N is not unique" failures if the base image ever changes underneath this.
+RUN useradd --create-home appuser
 USER appuser
 
 EXPOSE 8000

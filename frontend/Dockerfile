@@ -21,15 +21,15 @@ FROM node:22-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
-RUN useradd --create-home --uid 1000 appuser
-
-COPY --from=build --chown=appuser:appuser /app/.next/standalone ./
-COPY --from=build --chown=appuser:appuser /app/.next/static ./.next/static
+# node:22-slim already ships a non-root "node" user at uid 1000 — reuse it instead of
+# creating a new one, which fails with "UID 1000 is not unique" since that id is taken.
+COPY --from=build --chown=node:node /app/.next/standalone ./
+COPY --from=build --chown=node:node /app/.next/static ./.next/static
 # No public/ directory exists yet (no static assets beyond what Next.js generates into
 # .next/static). Add this line back if one gets added later:
-#   COPY --from=build --chown=appuser:appuser /app/public ./public
+#   COPY --from=build --chown=node:node /app/public ./public
 
-USER appuser
+USER node
 
 EXPOSE 3000
 
