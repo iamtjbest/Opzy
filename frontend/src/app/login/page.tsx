@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import LoginForm from "@/components/LoginForm";
+import Logo from "@/components/Logo";
 
 export default async function LogIn({
   searchParams,
@@ -12,10 +13,8 @@ export default async function LogIn({
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-neutral-mist px-4 py-16">
       <div className="w-full max-w-[440px] rounded-2xl border border-neutral-border bg-white p-8">
-        <div className="mb-8 flex flex-col items-center gap-1">
-          <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-[10px] bg-primary-navy text-lg font-extrabold text-white">
-            z
-          </div>
+        <div className="mb-8 flex flex-col items-center gap-3">
+          <Logo size={40} />
           <h1 className="text-2xl font-bold text-primary-navy">Welcome back</h1>
           <p className="text-sm text-neutral-slate">Log in to see what&rsquo;s new.</p>
         </div>

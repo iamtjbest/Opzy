@@ -61,6 +61,27 @@ function fieldFrom(loc: unknown[]): string {
   return String(loc[loc.length - 1] ?? "form");
 }
 
+// Pydantic's own validation text ("String should have at least 8 characters") is accurate
+// but reads like an internal error message, not something a product should show a user.
+// These patterns cover the messages this API's fields can actually trigger; anything that
+// doesn't match falls through to a capitalized version of the original rather than hiding
+// it, so a message this list hasn't seen yet is still legible instead of silently dropped.
+const FRIENDLY_PATTERNS: [RegExp, (match: RegExpMatchArray) => string][] = [
+  [/^field required$/i, () => "This field is required."],
+  [/^string should have at least (\d+) character/i, (m) => `Must be at least ${m[1]} characters.`],
+  [/^string should have at most (\d+) character/i, (m) => `Must be at most ${m[1]} characters.`],
+  [/^value is not a valid email address/i, () => "Enter a valid email address."],
+  [/^input should be a valid (string|integer|number|boolean)/i, () => "That value isn't valid."],
+];
+
+function friendlyMessage(raw: string): string {
+  for (const [pattern, format] of FRIENDLY_PATTERNS) {
+    const match = raw.match(pattern);
+    if (match) return format(match);
+  }
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+
 function toApiError(status: number, body: unknown): ApiError {
   const detail = (body as { detail?: unknown } | null)?.detail;
 
@@ -72,7 +93,7 @@ function toApiError(status: number, body: unknown): ApiError {
       const loc = Array.isArray(item?.loc) ? item.loc : [];
       const field = fieldFrom(loc);
       // First message per field wins; showing five messages on one input helps nobody.
-      if (!(field in fields)) fields[field] = String(item?.msg ?? "Invalid value");
+      if (!(field in fields)) fields[field] = friendlyMessage(String(item?.msg ?? "Invalid value"));
     }
     const first = Object.values(fields)[0] ?? "Please check the form and try again.";
     return new ApiError(status, first, fields);

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 
-import Input from "@/components/Input";
+import PasswordInput from "@/components/PasswordInput";
 import SubmitButton from "@/components/SubmitButton";
 import { confirmPasswordReset } from "@/app/actions/auth";
 import { EMPTY_FORM_STATE } from "@/lib/form-state";
@@ -22,20 +22,18 @@ export default function ResetPasswordForm({ token }: { token: string }) {
         </div>
       )}
       <input type="hidden" name="token" value={token} />
-      <Input
+      <PasswordInput
         label="New password"
         name="password"
         placeholder="••••••••"
-        type="password"
         autoComplete="new-password"
         required
         error={state.fields.new_password}
       />
-      <Input
+      <PasswordInput
         label="Confirm new password"
         name="confirm"
         placeholder="••••••••"
-        type="password"
         autoComplete="new-password"
         required
         error={state.fields.confirm}

@@ -38,6 +38,8 @@ export default function Input({
           autoComplete={autoComplete}
           aria-invalid={error ? true : undefined}
           className={`w-full rounded-lg border bg-white px-3.5 py-3 text-sm text-neutral-ink placeholder:text-neutral-slate focus:outline-none ${
+            rightSlot ? "pr-10" : ""
+          } ${
             error
               ? "border-danger-red focus:border-danger-red"
               : "border-neutral-border focus:border-primary-blue"

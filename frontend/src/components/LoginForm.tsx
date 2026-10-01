@@ -1,15 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import Input from "@/components/Input";
+import PasswordVisibilityToggle from "@/components/PasswordVisibilityToggle";
 import SubmitButton from "@/components/SubmitButton";
 import { login } from "@/app/actions/auth";
 import { EMPTY_FORM_STATE } from "@/lib/form-state";
 
 export default function LoginForm({ next, reset }: { next: string; reset: boolean }) {
   const [state, formAction] = useActionState(login, EMPTY_FORM_STATE);
+  const [passwordVisible, setPasswordVisible] = useState(false);
 
   return (
     <form action={formAction} className="flex flex-col gap-5">
@@ -45,15 +47,23 @@ export default function LoginForm({ next, reset }: { next: string; reset: boolea
             Forgot password?
           </Link>
         </div>
-        <input
-          id="login-password"
-          type="password"
-          name="password"
-          placeholder="••••••••"
-          autoComplete="current-password"
-          required
-          className="w-full rounded-lg border border-neutral-border bg-white px-3.5 py-3 text-sm text-neutral-ink placeholder:text-neutral-slate focus:border-primary-blue focus:outline-none"
-        />
+        <span className="relative flex items-center">
+          <input
+            id="login-password"
+            type={passwordVisible ? "text" : "password"}
+            name="password"
+            placeholder="••••••••"
+            autoComplete="current-password"
+            required
+            className="w-full rounded-lg border border-neutral-border bg-white px-3.5 py-3 pr-10 text-sm text-neutral-ink placeholder:text-neutral-slate focus:border-primary-blue focus:outline-none"
+          />
+          <span className="absolute right-3.5">
+            <PasswordVisibilityToggle
+              visible={passwordVisible}
+              onToggle={() => setPasswordVisible((v) => !v)}
+            />
+          </span>
+        </span>
       </div>
       <SubmitButton className="mt-1 w-full" pendingLabel="Logging in…">
         Log in

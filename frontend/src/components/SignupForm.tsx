@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 
 import Input from "@/components/Input";
+import PasswordInput from "@/components/PasswordInput";
 import SubmitButton from "@/components/SubmitButton";
 import { signup } from "@/app/actions/auth";
 import { EMPTY_SIGNUP_STATE } from "@/lib/form-state";
@@ -47,11 +48,10 @@ export default function SignupForm() {
         required
         error={state.fields.email}
       />
-      <Input
+      <PasswordInput
         label="Password"
         name="password"
         placeholder="••••••••"
-        type="password"
         autoComplete="new-password"
         required
         error={state.fields.password}

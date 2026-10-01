@@ -75,9 +75,37 @@ describe("apiFetch", () => {
     expect(caught).toBeInstanceOf(ApiError);
     const error = caught as InstanceType<typeof ApiError>;
     expect(error.status).toBe(422);
+    // Pydantic's own wording gets reworded into normal sentences for users (see
+    // friendlyMessage in server.ts); an unrecognized message still comes through, just
+    // capitalized, rather than being swallowed.
     expect(error.fields).toEqual({
-      nationality: "must be an ISO 3166 two-letter country code",
-      skills: "String should have at most 50 characters",
+      nationality: "Must be an ISO 3166 two-letter country code",
+      skills: "Must be at most 50 characters.",
+    });
+  });
+
+  it("recognizes the 'at least N characters' and 'field required' shapes too", async () => {
+    getToken.mockResolvedValue("tok-123");
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      jsonResponse(422, {
+        detail: [
+          { loc: ["body", "password"], msg: "String should have at least 8 characters" },
+          { loc: ["body", "email"], msg: "field required" },
+        ],
+      }),
+    );
+
+    let caught: unknown;
+    try {
+      await apiFetch("/profile");
+    } catch (e) {
+      caught = e;
+    }
+
+    const error = caught as InstanceType<typeof ApiError>;
+    expect(error.fields).toEqual({
+      password: "Must be at least 8 characters.",
+      email: "This field is required.",
     });
   });
 
