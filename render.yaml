@@ -24,9 +24,12 @@ services:
     plan: free
     region: frankfurt
     healthCheckPath: /health
-    # Runs once per deploy, before the new version takes traffic — not on every
-    # restart, so a scale event or crash-restart doesn't replay migrations.
-    preDeployCommand: alembic upgrade head
+    # preDeployCommand (run once per deploy, before the new version takes traffic) is a
+    # paid-tier-only feature — Render rejects it on `plan: free`. The fallback is running
+    # migrations as part of the container's own start command instead. That means this
+    # runs on every restart, not just a deploy, but `alembic upgrade head` is idempotent —
+    # it's a no-op once the database is already current — so that's harmless here.
+    dockerCommand: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
     envVars:
       - key: DATABASE_URL
         sync: false # Supabase pooled connection string, port 6543

@@ -40,7 +40,9 @@ USER appuser
 
 EXPOSE 8000
 
-# Migrations run as a separate Render "pre-deploy" command (see render.yaml), not here —
-# baking them into the image start command would re-run them on every restart/scale
-# event, not just on deploy.
+# This default CMD is plain uvicorn, no migrations — fine for local Docker Compose,
+# where migrations are run by hand once (see docker-compose.yml's comment). Render
+# overrides this with its own `dockerCommand` (see render.yaml) that runs
+# `alembic upgrade head` first, since Render's free tier doesn't support a separate
+# pre-deploy step.
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
