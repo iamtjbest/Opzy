@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 import httpx
@@ -17,6 +18,14 @@ from app.api.routes import (
 from app.core.config import get_settings
 from app.core.db import engine
 from app.email import EMAIL_TIMEOUT_SECONDS
+
+# Without this, every logger.info() call in the app (notably ConsoleSender in app/email.py,
+# which is how a verification/reset email shows up at all in local dev) is silently
+# dropped: Python's root logger has no handler and defaults to WARNING until something
+# configures it, and uvicorn only sets up its own "uvicorn"/"uvicorn.access"/"uvicorn.error"
+# loggers, never the root one. scripts/send_notifications.py already does this for the
+# standalone cron entrypoint; this is the same fix for the API process.
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
 settings = get_settings()
 
