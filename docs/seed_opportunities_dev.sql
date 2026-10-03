@@ -1,8 +1,9 @@
 -- GENERATED from docs/OPZY_SOURCE_TRACKING.xlsx by backend/scripts/seed_opportunities.py.
 -- Don't edit by hand: edit the sheet, then run `python -m scripts.seed_opportunities --sql`.
 --
--- DEV/TEST DATA: includes fictional opportunities (see the sheet's Notes column).
--- Never run this against production.
+-- UNVERIFIED DATA: every row is a real opportunity, but most are still marked
+-- Verified=No in the sheet (see its Notes column) pending a human confirmation pass.
+-- Never run this against production until that's done.
 --
 -- Needs the migrated schema: run after `alembic upgrade head`.
 -- Safe to re-run: rows already present (same title and organization) are updated to
@@ -189,856 +190,946 @@ where not exists (
 );
 
 update opportunities set
-    title = 'Junior Backend Engineer',
-    organization = 'Kora Labs (fictional)',
-    category = 'job',
-    geography = 'Lagos',
-    description = 'Build and maintain Python APIs for a payments product. Hybrid, three days a week in the Yaba office.',
-    deadline = date '2026-10-15',
-    eligibility_notes = '0–2 years experience; Python or Go; NYSC completed or exempted',
-    application_url = 'https://example.com/kora-labs/backend',
-    source_url = 'https://example.com/source/kora-labs',
-    quality_rating = 4,
-    verified = false,
-    status = 'active',
-    eligible_countries = array['NG']::text[],
-    education_levels = array['graduate', 'postgraduate']::text[],
-    fields_of_study = array['Computer Science', 'Computer Engineering', 'Software Engineering']::text[],
-    skills = array['Python', 'Go', 'SQL']::text[],
-    updated_at = now()
-where title = 'Junior Backend Engineer'
-  and organization is not distinct from 'Kora Labs (fictional)'
-  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Junior Backend Engineer', 'Kora Labs (fictional)', 'job', 'Lagos', 'Build and maintain Python APIs for a payments product. Hybrid, three days a week in the Yaba office.', date '2026-10-15', '0–2 years experience; Python or Go; NYSC completed or exempted', 'https://example.com/kora-labs/backend', 'https://example.com/source/kora-labs', 4, false, 'active', array['NG']::text[], array['graduate', 'postgraduate']::text[], array['Computer Science', 'Computer Engineering', 'Software Engineering']::text[], array['Python', 'Go', 'SQL']::text[]);
-
-insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
-select 'Junior Backend Engineer',
-       'Kora Labs (fictional)',
-       'job',
-       'Lagos',
-       'Build and maintain Python APIs for a payments product. Hybrid, three days a week in the Yaba office.',
-       date '2026-10-15',
-       '0–2 years experience; Python or Go; NYSC completed or exempted',
-       'https://example.com/kora-labs/backend',
-       'https://example.com/source/kora-labs',
-       4,
-       false,
-       'active',
-       array['NG']::text[],
-       array['graduate', 'postgraduate']::text[],
-       array['Computer Science', 'Computer Engineering', 'Software Engineering']::text[],
-       array['Python', 'Go', 'SQL']::text[]
-where not exists (
-  select 1 from opportunities
-  where title = 'Junior Backend Engineer'
-    and organization is not distinct from 'Kora Labs (fictional)'
-);
-
-update opportunities set
-    title = 'Graduate Data Analyst',
-    organization = 'Sahel Insights (fictional)',
-    category = 'job',
-    geography = 'Abuja',
-    description = 'Entry-level analyst role supporting public-sector research projects with SQL and dashboards.',
-    deadline = date '2026-11-01',
-    eligibility_notes = 'BSc in a quantitative field; SQL required; Excel/Power BI a plus',
-    application_url = 'https://example.com/sahel-insights/analyst',
-    source_url = 'https://example.com/source/sahel',
-    quality_rating = 3,
-    verified = false,
-    status = 'active',
-    eligible_countries = array['NG']::text[],
-    education_levels = array['graduate', 'postgraduate']::text[],
-    fields_of_study = array['Mathematics', 'Statistics', 'Economics', 'Computer Science', 'Engineering', 'Physics']::text[],
-    skills = array['SQL', 'Excel', 'Power BI']::text[],
-    updated_at = now()
-where title = 'Graduate Data Analyst'
-  and organization is not distinct from 'Sahel Insights (fictional)'
-  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Graduate Data Analyst', 'Sahel Insights (fictional)', 'job', 'Abuja', 'Entry-level analyst role supporting public-sector research projects with SQL and dashboards.', date '2026-11-01', 'BSc in a quantitative field; SQL required; Excel/Power BI a plus', 'https://example.com/sahel-insights/analyst', 'https://example.com/source/sahel', 3, false, 'active', array['NG']::text[], array['graduate', 'postgraduate']::text[], array['Mathematics', 'Statistics', 'Economics', 'Computer Science', 'Engineering', 'Physics']::text[], array['SQL', 'Excel', 'Power BI']::text[]);
-
-insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
-select 'Graduate Data Analyst',
-       'Sahel Insights (fictional)',
-       'job',
-       'Abuja',
-       'Entry-level analyst role supporting public-sector research projects with SQL and dashboards.',
-       date '2026-11-01',
-       'BSc in a quantitative field; SQL required; Excel/Power BI a plus',
-       'https://example.com/sahel-insights/analyst',
-       'https://example.com/source/sahel',
-       3,
-       false,
-       'active',
-       array['NG']::text[],
-       array['graduate', 'postgraduate']::text[],
-       array['Mathematics', 'Statistics', 'Economics', 'Computer Science', 'Engineering', 'Physics']::text[],
-       array['SQL', 'Excel', 'Power BI']::text[]
-where not exists (
-  select 1 from opportunities
-  where title = 'Graduate Data Analyst'
-    and organization is not distinct from 'Sahel Insights (fictional)'
-);
-
-update opportunities set
-    title = 'Remote Customer Success Associate',
-    organization = 'Brightline Africa (fictional)',
-    category = 'job',
-    geography = 'Remote (Nigeria)',
-    description = 'Support SME customers across West Africa on a SaaS bookkeeping tool.',
-    deadline = null::date,
-    eligibility_notes = 'Strong written English; any degree; available 9am–5pm WAT',
-    application_url = 'https://example.com/brightline/cs',
-    source_url = 'https://example.com/source/brightline',
-    quality_rating = 3,
-    verified = false,
-    status = 'active',
-    eligible_countries = array['NG']::text[],
-    education_levels = array['graduate', 'postgraduate']::text[],
-    fields_of_study = '{}'::text[],
-    skills = array['Customer Service', 'Writing', 'Communication']::text[],
-    updated_at = now()
-where title = 'Remote Customer Success Associate'
-  and organization is not distinct from 'Brightline Africa (fictional)'
-  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Remote Customer Success Associate', 'Brightline Africa (fictional)', 'job', 'Remote (Nigeria)', 'Support SME customers across West Africa on a SaaS bookkeeping tool.', null::date, 'Strong written English; any degree; available 9am–5pm WAT', 'https://example.com/brightline/cs', 'https://example.com/source/brightline', 3, false, 'active', array['NG']::text[], array['graduate', 'postgraduate']::text[], '{}'::text[], array['Customer Service', 'Writing', 'Communication']::text[]);
-
-insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
-select 'Remote Customer Success Associate',
-       'Brightline Africa (fictional)',
-       'job',
-       'Remote (Nigeria)',
-       'Support SME customers across West Africa on a SaaS bookkeeping tool.',
-       null::date,
-       'Strong written English; any degree; available 9am–5pm WAT',
-       'https://example.com/brightline/cs',
-       'https://example.com/source/brightline',
-       3,
-       false,
-       'active',
-       array['NG']::text[],
-       array['graduate', 'postgraduate']::text[],
-       '{}'::text[],
-       array['Customer Service', 'Writing', 'Communication']::text[]
-where not exists (
-  select 1 from opportunities
-  where title = 'Remote Customer Success Associate'
-    and organization is not distinct from 'Brightline Africa (fictional)'
-);
-
-update opportunities set
-    title = 'Product Design Intern',
-    organization = 'Tiwa Studio (fictional)',
-    category = 'internship',
-    geography = 'Lagos',
-    description = 'Six-month paid internship on a fintech design team, working on mobile onboarding flows.',
-    deadline = date '2026-10-10',
-    eligibility_notes = 'Final-year students or recent graduates; portfolio required',
-    application_url = 'https://example.com/tiwa/design-intern',
-    source_url = 'https://example.com/source/tiwa',
-    quality_rating = 4,
-    verified = false,
-    status = 'active',
-    eligible_countries = '{}'::text[],
-    education_levels = array['undergraduate', 'graduate']::text[],
-    fields_of_study = '{}'::text[],
-    skills = array['Figma', 'UI Design', 'UX Research']::text[],
-    updated_at = now()
-where title = 'Product Design Intern'
-  and organization is not distinct from 'Tiwa Studio (fictional)'
-  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Product Design Intern', 'Tiwa Studio (fictional)', 'internship', 'Lagos', 'Six-month paid internship on a fintech design team, working on mobile onboarding flows.', date '2026-10-10', 'Final-year students or recent graduates; portfolio required', 'https://example.com/tiwa/design-intern', 'https://example.com/source/tiwa', 4, false, 'active', '{}'::text[], array['undergraduate', 'graduate']::text[], '{}'::text[], array['Figma', 'UI Design', 'UX Research']::text[]);
-
-insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
-select 'Product Design Intern',
-       'Tiwa Studio (fictional)',
-       'internship',
-       'Lagos',
-       'Six-month paid internship on a fintech design team, working on mobile onboarding flows.',
-       date '2026-10-10',
-       'Final-year students or recent graduates; portfolio required',
-       'https://example.com/tiwa/design-intern',
-       'https://example.com/source/tiwa',
-       4,
-       false,
-       'active',
-       '{}'::text[],
-       array['undergraduate', 'graduate']::text[],
-       '{}'::text[],
-       array['Figma', 'UI Design', 'UX Research']::text[]
-where not exists (
-  select 1 from opportunities
-  where title = 'Product Design Intern'
-    and organization is not distinct from 'Tiwa Studio (fictional)'
-);
-
-update opportunities set
-    title = 'Software Engineering Internship (Summer 2027)',
-    organization = 'Northstar Tech (fictional)',
-    category = 'internship',
-    geography = 'Global, open to Nigerians',
-    description = '12-week remote internship pairing interns with senior engineers on production features.',
-    deadline = date '2026-12-01',
-    eligibility_notes = 'Currently enrolled in a CS or related degree; must graduate after June 2027',
-    application_url = 'https://example.com/northstar/swe-intern',
-    source_url = 'https://example.com/source/northstar',
-    quality_rating = 5,
-    verified = false,
-    status = 'active',
-    eligible_countries = '{}'::text[],
-    education_levels = array['undergraduate', 'postgraduate']::text[],
-    fields_of_study = array['Computer Science', 'Computer Engineering', 'Software Engineering', 'Information Technology']::text[],
-    skills = array['Python', 'Java', 'Data Structures']::text[],
-    updated_at = now()
-where title = 'Software Engineering Internship (Summer 2027)'
-  and organization is not distinct from 'Northstar Tech (fictional)'
-  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Software Engineering Internship (Summer 2027)', 'Northstar Tech (fictional)', 'internship', 'Global, open to Nigerians', '12-week remote internship pairing interns with senior engineers on production features.', date '2026-12-01', 'Currently enrolled in a CS or related degree; must graduate after June 2027', 'https://example.com/northstar/swe-intern', 'https://example.com/source/northstar', 5, false, 'active', '{}'::text[], array['undergraduate', 'postgraduate']::text[], array['Computer Science', 'Computer Engineering', 'Software Engineering', 'Information Technology']::text[], array['Python', 'Java', 'Data Structures']::text[]);
-
-insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
-select 'Software Engineering Internship (Summer 2027)',
-       'Northstar Tech (fictional)',
-       'internship',
-       'Global, open to Nigerians',
-       '12-week remote internship pairing interns with senior engineers on production features.',
-       date '2026-12-01',
-       'Currently enrolled in a CS or related degree; must graduate after June 2027',
-       'https://example.com/northstar/swe-intern',
-       'https://example.com/source/northstar',
-       5,
-       false,
-       'active',
-       '{}'::text[],
-       array['undergraduate', 'postgraduate']::text[],
-       array['Computer Science', 'Computer Engineering', 'Software Engineering', 'Information Technology']::text[],
-       array['Python', 'Java', 'Data Structures']::text[]
-where not exists (
-  select 1 from opportunities
-  where title = 'Software Engineering Internship (Summer 2027)'
-    and organization is not distinct from 'Northstar Tech (fictional)'
-);
-
-update opportunities set
-    title = 'Agritech Research Internship',
-    organization = 'Green Savanna Institute (fictional)',
-    category = 'internship',
-    geography = 'Ibadan',
-    description = 'Three-month field and lab internship on crop yield data collection.',
-    deadline = date '2026-09-01',
-    eligibility_notes = 'Undergraduates in agriculture, biology, or statistics',
-    application_url = 'https://example.com/green-savanna/intern',
-    source_url = 'https://example.com/source/green-savanna',
-    quality_rating = 3,
-    verified = false,
-    status = 'expired',
-    eligible_countries = array['NG']::text[],
-    education_levels = array['undergraduate']::text[],
-    fields_of_study = array['Agriculture', 'Biology', 'Statistics']::text[],
-    skills = array['Data Analysis']::text[],
-    updated_at = now()
-where title = 'Agritech Research Internship'
-  and organization is not distinct from 'Green Savanna Institute (fictional)'
-  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Agritech Research Internship', 'Green Savanna Institute (fictional)', 'internship', 'Ibadan', 'Three-month field and lab internship on crop yield data collection.', date '2026-09-01', 'Undergraduates in agriculture, biology, or statistics', 'https://example.com/green-savanna/intern', 'https://example.com/source/green-savanna', 3, false, 'expired', array['NG']::text[], array['undergraduate']::text[], array['Agriculture', 'Biology', 'Statistics']::text[], array['Data Analysis']::text[]);
-
-insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
-select 'Agritech Research Internship',
-       'Green Savanna Institute (fictional)',
-       'internship',
-       'Ibadan',
-       'Three-month field and lab internship on crop yield data collection.',
-       date '2026-09-01',
-       'Undergraduates in agriculture, biology, or statistics',
-       'https://example.com/green-savanna/intern',
-       'https://example.com/source/green-savanna',
-       3,
-       false,
-       'expired',
-       array['NG']::text[],
-       array['undergraduate']::text[],
-       array['Agriculture', 'Biology', 'Statistics']::text[],
-       array['Data Analysis']::text[]
-where not exists (
-  select 1 from opportunities
-  where title = 'Agritech Research Internship'
-    and organization is not distinct from 'Green Savanna Institute (fictional)'
-);
-
-update opportunities set
-    title = 'Future Leaders Undergraduate Scholarship',
-    organization = 'Adeyemi Foundation (fictional)',
+    title = 'Commonwealth Master''s Scholarships 2027/2028',
+    organization = 'UK Foreign, Commonwealth & Development Office (FCDO)',
     category = 'scholarship',
-    geography = 'Nigeria',
-    description = 'Full tuition plus a monthly stipend for undergraduates at Nigerian federal universities.',
-    deadline = date '2026-11-20',
-    eligibility_notes = 'Nigerian citizens; 200–300 level; minimum CGPA 3.5/5.0; family income below threshold',
-    application_url = 'https://example.com/adeyemi/scholarship',
-    source_url = 'https://example.com/source/adeyemi',
-    quality_rating = 4,
-    verified = false,
-    status = 'active',
-    eligible_countries = array['NG']::text[],
-    education_levels = array['undergraduate']::text[],
-    fields_of_study = '{}'::text[],
-    skills = '{}'::text[],
-    updated_at = now()
-where title = 'Future Leaders Undergraduate Scholarship'
-  and organization is not distinct from 'Adeyemi Foundation (fictional)'
-  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Future Leaders Undergraduate Scholarship', 'Adeyemi Foundation (fictional)', 'scholarship', 'Nigeria', 'Full tuition plus a monthly stipend for undergraduates at Nigerian federal universities.', date '2026-11-20', 'Nigerian citizens; 200–300 level; minimum CGPA 3.5/5.0; family income below threshold', 'https://example.com/adeyemi/scholarship', 'https://example.com/source/adeyemi', 4, false, 'active', array['NG']::text[], array['undergraduate']::text[], '{}'::text[], '{}'::text[]);
-
-insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
-select 'Future Leaders Undergraduate Scholarship',
-       'Adeyemi Foundation (fictional)',
-       'scholarship',
-       'Nigeria',
-       'Full tuition plus a monthly stipend for undergraduates at Nigerian federal universities.',
-       date '2026-11-20',
-       'Nigerian citizens; 200–300 level; minimum CGPA 3.5/5.0; family income below threshold',
-       'https://example.com/adeyemi/scholarship',
-       'https://example.com/source/adeyemi',
-       4,
-       false,
-       'active',
-       array['NG']::text[],
-       array['undergraduate']::text[],
-       '{}'::text[],
-       '{}'::text[]
-where not exists (
-  select 1 from opportunities
-  where title = 'Future Leaders Undergraduate Scholarship'
-    and organization is not distinct from 'Adeyemi Foundation (fictional)'
-);
-
-update opportunities set
-    title = 'Women in STEM Master''s Scholarship',
-    organization = 'Aurora Education Trust (fictional)',
-    category = 'scholarship',
-    geography = 'Nigeria (study abroad)',
-    description = 'Funds a one-year STEM master''s degree at a partner university in Europe.',
-    deadline = date '2027-01-15',
-    eligibility_notes = 'Women; Nigerian nationals; first-class or 2:1 in a STEM field',
-    application_url = 'https://example.com/aurora/stem',
-    source_url = 'https://example.com/source/aurora',
+    geography = 'Nigeria (study in UK)',
+    description = 'Fully funded master''s scholarships in the UK for citizens of eligible developing Commonwealth countries, administered by the Commonwealth Scholarship Commission.',
+    deadline = date '2026-10-20',
+    eligibility_notes = 'Nigerian nationals from eligible developing Commonwealth countries; must return home after studies; typically requires a first-class or strong second-class degree.',
+    application_url = 'https://cscuk.fcdo.gov.uk/scholarships/commonwealth-masters-scholarships',
+    source_url = 'https://cscuk.fcdo.gov.uk/scholarships/commonwealth-masters-scholarships',
     quality_rating = 5,
     verified = false,
     status = 'active',
     eligible_countries = array['NG']::text[],
-    education_levels = array['graduate']::text[],
-    fields_of_study = array['Science', 'Technology', 'Engineering', 'Mathematics', 'Computer Science', 'Physics', 'Chemistry', 'Biology']::text[],
+    education_levels = array['graduate', 'postgraduate']::text[],
+    fields_of_study = '{}'::text[],
     skills = '{}'::text[],
     updated_at = now()
-where title = 'Women in STEM Master''s Scholarship'
-  and organization is not distinct from 'Aurora Education Trust (fictional)'
-  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Women in STEM Master''s Scholarship', 'Aurora Education Trust (fictional)', 'scholarship', 'Nigeria (study abroad)', 'Funds a one-year STEM master''s degree at a partner university in Europe.', date '2027-01-15', 'Women; Nigerian nationals; first-class or 2:1 in a STEM field', 'https://example.com/aurora/stem', 'https://example.com/source/aurora', 5, false, 'active', array['NG']::text[], array['graduate']::text[], array['Science', 'Technology', 'Engineering', 'Mathematics', 'Computer Science', 'Physics', 'Chemistry', 'Biology']::text[], '{}'::text[]);
+where title = 'Commonwealth Master''s Scholarships 2027/2028'
+  and organization is not distinct from 'UK Foreign, Commonwealth & Development Office (FCDO)'
+  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Commonwealth Master''s Scholarships 2027/2028', 'UK Foreign, Commonwealth & Development Office (FCDO)', 'scholarship', 'Nigeria (study in UK)', 'Fully funded master''s scholarships in the UK for citizens of eligible developing Commonwealth countries, administered by the Commonwealth Scholarship Commission.', date '2026-10-20', 'Nigerian nationals from eligible developing Commonwealth countries; must return home after studies; typically requires a first-class or strong second-class degree.', 'https://cscuk.fcdo.gov.uk/scholarships/commonwealth-masters-scholarships', 'https://cscuk.fcdo.gov.uk/scholarships/commonwealth-masters-scholarships', 5, false, 'active', array['NG']::text[], array['graduate', 'postgraduate']::text[], '{}'::text[], '{}'::text[]);
 
 insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
-select 'Women in STEM Master''s Scholarship',
-       'Aurora Education Trust (fictional)',
+select 'Commonwealth Master''s Scholarships 2027/2028',
+       'UK Foreign, Commonwealth & Development Office (FCDO)',
        'scholarship',
-       'Nigeria (study abroad)',
-       'Funds a one-year STEM master''s degree at a partner university in Europe.',
-       date '2027-01-15',
-       'Women; Nigerian nationals; first-class or 2:1 in a STEM field',
-       'https://example.com/aurora/stem',
-       'https://example.com/source/aurora',
+       'Nigeria (study in UK)',
+       'Fully funded master''s scholarships in the UK for citizens of eligible developing Commonwealth countries, administered by the Commonwealth Scholarship Commission.',
+       date '2026-10-20',
+       'Nigerian nationals from eligible developing Commonwealth countries; must return home after studies; typically requires a first-class or strong second-class degree.',
+       'https://cscuk.fcdo.gov.uk/scholarships/commonwealth-masters-scholarships',
+       'https://cscuk.fcdo.gov.uk/scholarships/commonwealth-masters-scholarships',
        5,
        false,
        'active',
        array['NG']::text[],
-       array['graduate']::text[],
-       array['Science', 'Technology', 'Engineering', 'Mathematics', 'Computer Science', 'Physics', 'Chemistry', 'Biology']::text[],
+       array['graduate', 'postgraduate']::text[],
+       '{}'::text[],
        '{}'::text[]
 where not exists (
   select 1 from opportunities
-  where title = 'Women in STEM Master''s Scholarship'
-    and organization is not distinct from 'Aurora Education Trust (fictional)'
+  where title = 'Commonwealth Master''s Scholarships 2027/2028'
+    and organization is not distinct from 'UK Foreign, Commonwealth & Development Office (FCDO)'
 );
 
 update opportunities set
-    title = 'Postgraduate Research Bursary',
-    organization = 'Lakeside University Fund (fictional)',
+    title = 'Commonwealth PhD Scholarships 2027/2028',
+    organization = 'UK Foreign, Commonwealth & Development Office (FCDO)',
     category = 'scholarship',
-    geography = 'ECOWAS region',
-    description = 'Partial bursary for MSc and PhD candidates researching climate adaptation.',
-    deadline = null::date,
-    eligibility_notes = 'ECOWAS nationals; admitted to a postgraduate programme',
-    application_url = 'https://example.com/lakeside/bursary',
-    source_url = 'https://example.com/source/lakeside',
-    quality_rating = 2,
+    geography = 'Nigeria (study in UK)',
+    description = 'Fully funded doctoral scholarships in the UK for talented individuals from developing Commonwealth countries who could not otherwise afford to study in the UK.',
+    deadline = date '2026-10-20',
+    eligibility_notes = 'Nigerian nationals; eligibility route and funding vary by scholarship category.',
+    application_url = 'https://cscuk.fcdo.gov.uk/scholarships/',
+    source_url = 'https://cscuk.fcdo.gov.uk/scholarships/commonwealth-phd-scholarships-for-least-developed-countries-and-vulnerable-states',
+    quality_rating = 4,
     verified = false,
     status = 'active',
-    eligible_countries = array['BJ', 'CI', 'CV', 'GH', 'GM', 'GN', 'GW', 'LR', 'NG', 'SL', 'SN', 'TG']::text[],
+    eligible_countries = array['NG']::text[],
     education_levels = array['postgraduate']::text[],
     fields_of_study = '{}'::text[],
     skills = '{}'::text[],
     updated_at = now()
-where title = 'Postgraduate Research Bursary'
-  and organization is not distinct from 'Lakeside University Fund (fictional)'
-  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Postgraduate Research Bursary', 'Lakeside University Fund (fictional)', 'scholarship', 'ECOWAS region', 'Partial bursary for MSc and PhD candidates researching climate adaptation.', null::date, 'ECOWAS nationals; admitted to a postgraduate programme', 'https://example.com/lakeside/bursary', 'https://example.com/source/lakeside', 2, false, 'active', array['BJ', 'CI', 'CV', 'GH', 'GM', 'GN', 'GW', 'LR', 'NG', 'SL', 'SN', 'TG']::text[], array['postgraduate']::text[], '{}'::text[], '{}'::text[]);
+where title = 'Commonwealth PhD Scholarships 2027/2028'
+  and organization is not distinct from 'UK Foreign, Commonwealth & Development Office (FCDO)'
+  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Commonwealth PhD Scholarships 2027/2028', 'UK Foreign, Commonwealth & Development Office (FCDO)', 'scholarship', 'Nigeria (study in UK)', 'Fully funded doctoral scholarships in the UK for talented individuals from developing Commonwealth countries who could not otherwise afford to study in the UK.', date '2026-10-20', 'Nigerian nationals; eligibility route and funding vary by scholarship category.', 'https://cscuk.fcdo.gov.uk/scholarships/', 'https://cscuk.fcdo.gov.uk/scholarships/commonwealth-phd-scholarships-for-least-developed-countries-and-vulnerable-states', 4, false, 'active', array['NG']::text[], array['postgraduate']::text[], '{}'::text[], '{}'::text[]);
 
 insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
-select 'Postgraduate Research Bursary',
-       'Lakeside University Fund (fictional)',
+select 'Commonwealth PhD Scholarships 2027/2028',
+       'UK Foreign, Commonwealth & Development Office (FCDO)',
        'scholarship',
-       'ECOWAS region',
-       'Partial bursary for MSc and PhD candidates researching climate adaptation.',
-       null::date,
-       'ECOWAS nationals; admitted to a postgraduate programme',
-       'https://example.com/lakeside/bursary',
-       'https://example.com/source/lakeside',
-       2,
+       'Nigeria (study in UK)',
+       'Fully funded doctoral scholarships in the UK for talented individuals from developing Commonwealth countries who could not otherwise afford to study in the UK.',
+       date '2026-10-20',
+       'Nigerian nationals; eligibility route and funding vary by scholarship category.',
+       'https://cscuk.fcdo.gov.uk/scholarships/',
+       'https://cscuk.fcdo.gov.uk/scholarships/commonwealth-phd-scholarships-for-least-developed-countries-and-vulnerable-states',
+       4,
        false,
        'active',
-       array['BJ', 'CI', 'CV', 'GH', 'GM', 'GN', 'GW', 'LR', 'NG', 'SL', 'SN', 'TG']::text[],
+       array['NG']::text[],
        array['postgraduate']::text[],
        '{}'::text[],
        '{}'::text[]
 where not exists (
   select 1 from opportunities
-  where title = 'Postgraduate Research Bursary'
-    and organization is not distinct from 'Lakeside University Fund (fictional)'
+  where title = 'Commonwealth PhD Scholarships 2027/2028'
+    and organization is not distinct from 'UK Foreign, Commonwealth & Development Office (FCDO)'
 );
 
 update opportunities set
-    title = 'Civic Tech Fellowship',
-    organization = 'OpenCity Collective (fictional)',
-    category = 'fellowship',
-    geography = 'Abuja',
-    description = 'Nine-month paid fellowship building digital tools with state government agencies.',
-    deadline = date '2026-10-25',
-    eligibility_notes = 'Under 30; software, design, or policy background',
-    application_url = 'https://example.com/opencity/fellowship',
-    source_url = 'https://example.com/source/opencity',
+    title = 'Gates Cambridge Scholarship 2027/2028',
+    organization = 'Gates Cambridge Trust / University of Cambridge',
+    category = 'scholarship',
+    geography = 'Nigeria (study in UK)',
+    description = 'Full-cost postgraduate scholarship at the University of Cambridge for outstanding applicants from outside the UK, in any subject.',
+    deadline = date '2026-10-14',
+    eligibility_notes = 'Non-UK citizens applying for a full-time postgraduate course at Cambridge; outstanding academic record and leadership potential.',
+    application_url = 'https://www.gatescambridge.org/apply/',
+    source_url = 'https://www.gatescambridge.org/apply/',
+    quality_rating = 5,
+    verified = false,
+    status = 'active',
+    eligible_countries = '{}'::text[],
+    education_levels = array['postgraduate']::text[],
+    fields_of_study = '{}'::text[],
+    skills = '{}'::text[],
+    updated_at = now()
+where title = 'Gates Cambridge Scholarship 2027/2028'
+  and organization is not distinct from 'Gates Cambridge Trust / University of Cambridge'
+  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Gates Cambridge Scholarship 2027/2028', 'Gates Cambridge Trust / University of Cambridge', 'scholarship', 'Nigeria (study in UK)', 'Full-cost postgraduate scholarship at the University of Cambridge for outstanding applicants from outside the UK, in any subject.', date '2026-10-14', 'Non-UK citizens applying for a full-time postgraduate course at Cambridge; outstanding academic record and leadership potential.', 'https://www.gatescambridge.org/apply/', 'https://www.gatescambridge.org/apply/', 5, false, 'active', '{}'::text[], array['postgraduate']::text[], '{}'::text[], '{}'::text[]);
+
+insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
+select 'Gates Cambridge Scholarship 2027/2028',
+       'Gates Cambridge Trust / University of Cambridge',
+       'scholarship',
+       'Nigeria (study in UK)',
+       'Full-cost postgraduate scholarship at the University of Cambridge for outstanding applicants from outside the UK, in any subject.',
+       date '2026-10-14',
+       'Non-UK citizens applying for a full-time postgraduate course at Cambridge; outstanding academic record and leadership potential.',
+       'https://www.gatescambridge.org/apply/',
+       'https://www.gatescambridge.org/apply/',
+       5,
+       false,
+       'active',
+       '{}'::text[],
+       array['postgraduate']::text[],
+       '{}'::text[],
+       '{}'::text[]
+where not exists (
+  select 1 from opportunities
+  where title = 'Gates Cambridge Scholarship 2027/2028'
+    and organization is not distinct from 'Gates Cambridge Trust / University of Cambridge'
+);
+
+update opportunities set
+    title = 'Mastercard Foundation AfOx Graduate Scholarships 2027/2028',
+    organization = 'Mastercard Foundation / African Oxford Initiative (AfOx), University of Oxford',
+    category = 'scholarship',
+    geography = 'Nigeria (study in UK)',
+    description = 'Fully funded graduate scholarships at the University of Oxford for African citizens resident in Africa, part of the Mastercard Foundation Scholars Program.',
+    deadline = date '2027-01-06',
+    eligibility_notes = 'African citizens resident in an African country; demonstrated financial need and leadership potential.',
+    application_url = 'https://www.law.ox.ac.uk/mastercard-foundation-afox-scholarships',
+    source_url = 'https://www.law.ox.ac.uk/mastercard-foundation-afox-scholarships',
     quality_rating = 4,
+    verified = false,
+    status = 'active',
+    eligible_countries = '{}'::text[],
+    education_levels = array['postgraduate']::text[],
+    fields_of_study = '{}'::text[],
+    skills = '{}'::text[],
+    updated_at = now()
+where title = 'Mastercard Foundation AfOx Graduate Scholarships 2027/2028'
+  and organization is not distinct from 'Mastercard Foundation / African Oxford Initiative (AfOx), University of Oxford'
+  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Mastercard Foundation AfOx Graduate Scholarships 2027/2028', 'Mastercard Foundation / African Oxford Initiative (AfOx), University of Oxford', 'scholarship', 'Nigeria (study in UK)', 'Fully funded graduate scholarships at the University of Oxford for African citizens resident in Africa, part of the Mastercard Foundation Scholars Program.', date '2027-01-06', 'African citizens resident in an African country; demonstrated financial need and leadership potential.', 'https://www.law.ox.ac.uk/mastercard-foundation-afox-scholarships', 'https://www.law.ox.ac.uk/mastercard-foundation-afox-scholarships', 4, false, 'active', '{}'::text[], array['postgraduate']::text[], '{}'::text[], '{}'::text[]);
+
+insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
+select 'Mastercard Foundation AfOx Graduate Scholarships 2027/2028',
+       'Mastercard Foundation / African Oxford Initiative (AfOx), University of Oxford',
+       'scholarship',
+       'Nigeria (study in UK)',
+       'Fully funded graduate scholarships at the University of Oxford for African citizens resident in Africa, part of the Mastercard Foundation Scholars Program.',
+       date '2027-01-06',
+       'African citizens resident in an African country; demonstrated financial need and leadership potential.',
+       'https://www.law.ox.ac.uk/mastercard-foundation-afox-scholarships',
+       'https://www.law.ox.ac.uk/mastercard-foundation-afox-scholarships',
+       4,
+       false,
+       'active',
+       '{}'::text[],
+       array['postgraduate']::text[],
+       '{}'::text[],
+       '{}'::text[]
+where not exists (
+  select 1 from opportunities
+  where title = 'Mastercard Foundation AfOx Graduate Scholarships 2027/2028'
+    and organization is not distinct from 'Mastercard Foundation / African Oxford Initiative (AfOx), University of Oxford'
+);
+
+update opportunities set
+    title = 'Mandela Washington Fellowship (YALI) 2027',
+    organization = 'U.S. Department of State / Young African Leaders Initiative (YALI)',
+    category = 'fellowship',
+    geography = 'Nigeria (6-week program in the USA)',
+    description = 'Flagship YALI program: a six-week leadership institute at a U.S. university, followed by a summit in Washington, DC, for young African leaders in business, civic engagement, or public management.',
+    deadline = date '2026-10-13',
+    eligibility_notes = 'Age 25-35 by Oct 13 2026 (exceptional 21-24 year olds considered); citizen and resident of an eligible Sub-Saharan African country, including Nigeria.',
+    application_url = 'https://www.mandelawashingtonfellowship.org/',
+    source_url = 'https://www.mandelawashingtonfellowship.org/',
+    quality_rating = 5,
     verified = false,
     status = 'active',
     eligible_countries = array['NG']::text[],
     education_levels = '{}'::text[],
-    fields_of_study = array['Computer Science', 'Software Engineering', 'Design', 'Public Policy', 'Political Science']::text[],
-    skills = array['Python', 'JavaScript', 'Figma', 'Policy Analysis']::text[],
+    fields_of_study = '{}'::text[],
+    skills = '{}'::text[],
     updated_at = now()
-where title = 'Civic Tech Fellowship'
-  and organization is not distinct from 'OpenCity Collective (fictional)'
-  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Civic Tech Fellowship', 'OpenCity Collective (fictional)', 'fellowship', 'Abuja', 'Nine-month paid fellowship building digital tools with state government agencies.', date '2026-10-25', 'Under 30; software, design, or policy background', 'https://example.com/opencity/fellowship', 'https://example.com/source/opencity', 4, false, 'active', array['NG']::text[], '{}'::text[], array['Computer Science', 'Software Engineering', 'Design', 'Public Policy', 'Political Science']::text[], array['Python', 'JavaScript', 'Figma', 'Policy Analysis']::text[]);
+where title = 'Mandela Washington Fellowship (YALI) 2027'
+  and organization is not distinct from 'U.S. Department of State / Young African Leaders Initiative (YALI)'
+  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Mandela Washington Fellowship (YALI) 2027', 'U.S. Department of State / Young African Leaders Initiative (YALI)', 'fellowship', 'Nigeria (6-week program in the USA)', 'Flagship YALI program: a six-week leadership institute at a U.S. university, followed by a summit in Washington, DC, for young African leaders in business, civic engagement, or public management.', date '2026-10-13', 'Age 25-35 by Oct 13 2026 (exceptional 21-24 year olds considered); citizen and resident of an eligible Sub-Saharan African country, including Nigeria.', 'https://www.mandelawashingtonfellowship.org/', 'https://www.mandelawashingtonfellowship.org/', 5, false, 'active', array['NG']::text[], '{}'::text[], '{}'::text[], '{}'::text[]);
 
 insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
-select 'Civic Tech Fellowship',
-       'OpenCity Collective (fictional)',
+select 'Mandela Washington Fellowship (YALI) 2027',
+       'U.S. Department of State / Young African Leaders Initiative (YALI)',
        'fellowship',
-       'Abuja',
-       'Nine-month paid fellowship building digital tools with state government agencies.',
-       date '2026-10-25',
-       'Under 30; software, design, or policy background',
-       'https://example.com/opencity/fellowship',
-       'https://example.com/source/opencity',
-       4,
+       'Nigeria (6-week program in the USA)',
+       'Flagship YALI program: a six-week leadership institute at a U.S. university, followed by a summit in Washington, DC, for young African leaders in business, civic engagement, or public management.',
+       date '2026-10-13',
+       'Age 25-35 by Oct 13 2026 (exceptional 21-24 year olds considered); citizen and resident of an eligible Sub-Saharan African country, including Nigeria.',
+       'https://www.mandelawashingtonfellowship.org/',
+       'https://www.mandelawashingtonfellowship.org/',
+       5,
        false,
        'active',
        array['NG']::text[],
        '{}'::text[],
-       array['Computer Science', 'Software Engineering', 'Design', 'Public Policy', 'Political Science']::text[],
-       array['Python', 'JavaScript', 'Figma', 'Policy Analysis']::text[]
-where not exists (
-  select 1 from opportunities
-  where title = 'Civic Tech Fellowship'
-    and organization is not distinct from 'OpenCity Collective (fictional)'
-);
-
-update opportunities set
-    title = 'Climate Innovators Fellowship',
-    organization = 'Harmattan Fund (fictional)',
-    category = 'fellowship',
-    geography = 'Global, open to Nigerians',
-    description = 'Six-month virtual fellowship with mentorship and seed funding for climate projects.',
-    deadline = date '2026-08-15',
-    eligibility_notes = 'Aged 18–35; working on an early-stage climate project',
-    application_url = 'https://example.com/harmattan/fellowship',
-    source_url = 'https://example.com/source/harmattan',
-    quality_rating = 4,
-    verified = false,
-    status = 'expired',
-    eligible_countries = '{}'::text[],
-    education_levels = '{}'::text[],
-    fields_of_study = array['Environmental Science']::text[],
-    skills = '{}'::text[],
-    updated_at = now()
-where title = 'Climate Innovators Fellowship'
-  and organization is not distinct from 'Harmattan Fund (fictional)'
-  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Climate Innovators Fellowship', 'Harmattan Fund (fictional)', 'fellowship', 'Global, open to Nigerians', 'Six-month virtual fellowship with mentorship and seed funding for climate projects.', date '2026-08-15', 'Aged 18–35; working on an early-stage climate project', 'https://example.com/harmattan/fellowship', 'https://example.com/source/harmattan', 4, false, 'expired', '{}'::text[], '{}'::text[], array['Environmental Science']::text[], '{}'::text[]);
-
-insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
-select 'Climate Innovators Fellowship',
-       'Harmattan Fund (fictional)',
-       'fellowship',
-       'Global, open to Nigerians',
-       'Six-month virtual fellowship with mentorship and seed funding for climate projects.',
-       date '2026-08-15',
-       'Aged 18–35; working on an early-stage climate project',
-       'https://example.com/harmattan/fellowship',
-       'https://example.com/source/harmattan',
-       4,
-       false,
-       'expired',
        '{}'::text[],
-       '{}'::text[],
-       array['Environmental Science']::text[],
        '{}'::text[]
 where not exists (
   select 1 from opportunities
-  where title = 'Climate Innovators Fellowship'
-    and organization is not distinct from 'Harmattan Fund (fictional)'
+  where title = 'Mandela Washington Fellowship (YALI) 2027'
+    and organization is not distinct from 'U.S. Department of State / Young African Leaders Initiative (YALI)'
 );
 
 update opportunities set
-    title = 'Early-Stage Founder Grant',
-    organization = 'Delta Ventures Foundation (fictional)',
-    category = 'grant',
+    title = 'Anzisha Fellowship 2027',
+    organization = 'Anzisha Prize (African Leadership Academy & Mastercard Foundation)',
+    category = 'fellowship',
+    geography = 'Nigeria (pan-African)',
+    description = 'Multi-year venture-building fellowship for very young African entrepreneurs already running a real business, with mentorship, grants, and business support.',
+    deadline = date '2026-11-10',
+    eligibility_notes = 'Age 15-22, citizen of an African country, founding member of an already-operating business with real customers or revenue — an idea alone does not qualify.',
+    application_url = 'https://anzisha.org/apply/',
+    source_url = 'https://anzisha.org/apply/',
+    quality_rating = 5,
+    verified = false,
+    status = 'active',
+    eligible_countries = '{}'::text[],
+    education_levels = '{}'::text[],
+    fields_of_study = '{}'::text[],
+    skills = '{}'::text[],
+    updated_at = now()
+where title = 'Anzisha Fellowship 2027'
+  and organization is not distinct from 'Anzisha Prize (African Leadership Academy & Mastercard Foundation)'
+  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Anzisha Fellowship 2027', 'Anzisha Prize (African Leadership Academy & Mastercard Foundation)', 'fellowship', 'Nigeria (pan-African)', 'Multi-year venture-building fellowship for very young African entrepreneurs already running a real business, with mentorship, grants, and business support.', date '2026-11-10', 'Age 15-22, citizen of an African country, founding member of an already-operating business with real customers or revenue — an idea alone does not qualify.', 'https://anzisha.org/apply/', 'https://anzisha.org/apply/', 5, false, 'active', '{}'::text[], '{}'::text[], '{}'::text[], '{}'::text[]);
+
+insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
+select 'Anzisha Fellowship 2027',
+       'Anzisha Prize (African Leadership Academy & Mastercard Foundation)',
+       'fellowship',
+       'Nigeria (pan-African)',
+       'Multi-year venture-building fellowship for very young African entrepreneurs already running a real business, with mentorship, grants, and business support.',
+       date '2026-11-10',
+       'Age 15-22, citizen of an African country, founding member of an already-operating business with real customers or revenue — an idea alone does not qualify.',
+       'https://anzisha.org/apply/',
+       'https://anzisha.org/apply/',
+       5,
+       false,
+       'active',
+       '{}'::text[],
+       '{}'::text[],
+       '{}'::text[],
+       '{}'::text[]
+where not exists (
+  select 1 from opportunities
+  where title = 'Anzisha Fellowship 2027'
+    and organization is not distinct from 'Anzisha Prize (African Leadership Academy & Mastercard Foundation)'
+);
+
+update opportunities set
+    title = 'She Leads Africa BoostHer Program 2026',
+    organization = 'She Leads Africa (SLA)',
+    category = 'fellowship',
     geography = 'Nigeria',
-    description = 'Non-equity grant of up to ₦5,000,000 for pre-seed startups.',
+    description = 'Career-readiness and mentorship program for young Nigerian women — students, undergraduates, and recent graduates — with expert-led training, mentorship, and access to job/business opportunities.',
+    deadline = null::date,
+    eligibility_notes = 'Nigerian women aged 18-35.',
+    application_url = 'https://sheleadsafrica.org/boostherform/',
+    source_url = 'https://opportunitydesk.org/2026/08/25/sla-boosther-program-2026/',
+    quality_rating = 3,
+    verified = false,
+    status = 'active',
+    eligible_countries = array['NG']::text[],
+    education_levels = '{}'::text[],
+    fields_of_study = '{}'::text[],
+    skills = '{}'::text[],
+    updated_at = now()
+where title = 'She Leads Africa BoostHer Program 2026'
+  and organization is not distinct from 'She Leads Africa (SLA)'
+  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('She Leads Africa BoostHer Program 2026', 'She Leads Africa (SLA)', 'fellowship', 'Nigeria', 'Career-readiness and mentorship program for young Nigerian women — students, undergraduates, and recent graduates — with expert-led training, mentorship, and access to job/business opportunities.', null::date, 'Nigerian women aged 18-35.', 'https://sheleadsafrica.org/boostherform/', 'https://opportunitydesk.org/2026/08/25/sla-boosther-program-2026/', 3, false, 'active', array['NG']::text[], '{}'::text[], '{}'::text[], '{}'::text[]);
+
+insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
+select 'She Leads Africa BoostHer Program 2026',
+       'She Leads Africa (SLA)',
+       'fellowship',
+       'Nigeria',
+       'Career-readiness and mentorship program for young Nigerian women — students, undergraduates, and recent graduates — with expert-led training, mentorship, and access to job/business opportunities.',
+       null::date,
+       'Nigerian women aged 18-35.',
+       'https://sheleadsafrica.org/boostherform/',
+       'https://opportunitydesk.org/2026/08/25/sla-boosther-program-2026/',
+       3,
+       false,
+       'active',
+       array['NG']::text[],
+       '{}'::text[],
+       '{}'::text[],
+       '{}'::text[]
+where not exists (
+  select 1 from opportunities
+  where title = 'She Leads Africa BoostHer Program 2026'
+    and organization is not distinct from 'She Leads Africa (SLA)'
+);
+
+update opportunities set
+    title = 'Yenching Academy at Peking University 2027',
+    organization = 'Peking University',
+    category = 'scholarship',
+    geography = 'Nigeria (study in China)',
+    description = 'Fully funded one-year interdisciplinary master''s program in China Studies at Peking University for international applicants with strong academic records.',
     deadline = date '2026-11-30',
-    eligibility_notes = 'Registered Nigerian business under 2 years old; at least one full-time founder',
-    application_url = 'https://example.com/delta/grant',
-    source_url = 'https://example.com/source/delta',
-    quality_rating = 4,
-    verified = false,
-    status = 'active',
-    eligible_countries = array['NG']::text[],
-    education_levels = '{}'::text[],
-    fields_of_study = '{}'::text[],
-    skills = array['Entrepreneurship']::text[],
-    updated_at = now()
-where title = 'Early-Stage Founder Grant'
-  and organization is not distinct from 'Delta Ventures Foundation (fictional)'
-  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Early-Stage Founder Grant', 'Delta Ventures Foundation (fictional)', 'grant', 'Nigeria', 'Non-equity grant of up to ₦5,000,000 for pre-seed startups.', date '2026-11-30', 'Registered Nigerian business under 2 years old; at least one full-time founder', 'https://example.com/delta/grant', 'https://example.com/source/delta', 4, false, 'active', array['NG']::text[], '{}'::text[], '{}'::text[], array['Entrepreneurship']::text[]);
-
-insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
-select 'Early-Stage Founder Grant',
-       'Delta Ventures Foundation (fictional)',
-       'grant',
-       'Nigeria',
-       'Non-equity grant of up to ₦5,000,000 for pre-seed startups.',
-       date '2026-11-30',
-       'Registered Nigerian business under 2 years old; at least one full-time founder',
-       'https://example.com/delta/grant',
-       'https://example.com/source/delta',
-       4,
-       false,
-       'active',
-       array['NG']::text[],
-       '{}'::text[],
-       '{}'::text[],
-       array['Entrepreneurship']::text[]
-where not exists (
-  select 1 from opportunities
-  where title = 'Early-Stage Founder Grant'
-    and organization is not distinct from 'Delta Ventures Foundation (fictional)'
-);
-
-update opportunities set
-    title = 'Creative Arts Micro-Grant',
-    organization = 'Oriki Arts Council (fictional)',
-    category = 'grant',
-    geography = 'Lagos',
-    description = 'Small grants for visual artists, writers, and filmmakers producing new work.',
-    deadline = null::date,
-    eligibility_notes = 'Lagos residents; aged 18+; portfolio or writing sample required',
-    application_url = 'https://example.com/oriki/grant',
-    source_url = 'https://example.com/source/oriki',
+    eligibility_notes = 'International applicants with a bachelor''s degree; open to all nationalities, including Nigeria.',
+    application_url = 'https://yenchingacademy.pku.edu.cn/',
+    source_url = 'https://yenchingacademy.pku.edu.cn/',
     quality_rating = 3,
     verified = false,
     status = 'active',
-    eligible_countries = array['NG']::text[],
-    education_levels = '{}'::text[],
-    fields_of_study = array['Fine Arts', 'Creative Writing', 'Music', 'Film']::text[],
-    skills = array['Writing', 'Illustration', 'Photography']::text[],
-    updated_at = now()
-where title = 'Creative Arts Micro-Grant'
-  and organization is not distinct from 'Oriki Arts Council (fictional)'
-  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Creative Arts Micro-Grant', 'Oriki Arts Council (fictional)', 'grant', 'Lagos', 'Small grants for visual artists, writers, and filmmakers producing new work.', null::date, 'Lagos residents; aged 18+; portfolio or writing sample required', 'https://example.com/oriki/grant', 'https://example.com/source/oriki', 3, false, 'active', array['NG']::text[], '{}'::text[], array['Fine Arts', 'Creative Writing', 'Music', 'Film']::text[], array['Writing', 'Illustration', 'Photography']::text[]);
-
-insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
-select 'Creative Arts Micro-Grant',
-       'Oriki Arts Council (fictional)',
-       'grant',
-       'Lagos',
-       'Small grants for visual artists, writers, and filmmakers producing new work.',
-       null::date,
-       'Lagos residents; aged 18+; portfolio or writing sample required',
-       'https://example.com/oriki/grant',
-       'https://example.com/source/oriki',
-       3,
-       false,
-       'active',
-       array['NG']::text[],
-       '{}'::text[],
-       array['Fine Arts', 'Creative Writing', 'Music', 'Film']::text[],
-       array['Writing', 'Illustration', 'Photography']::text[]
-where not exists (
-  select 1 from opportunities
-  where title = 'Creative Arts Micro-Grant'
-    and organization is not distinct from 'Oriki Arts Council (fictional)'
-);
-
-update opportunities set
-    title = 'Health Innovation Research Grant',
-    organization = 'Meridian Health Trust (fictional)',
-    category = 'grant',
-    geography = 'ECOWAS region',
-    description = 'Funding for applied research on primary healthcare delivery.',
-    deadline = date '2027-02-28',
-    eligibility_notes = 'Affiliated with a university or research institute in an ECOWAS country',
-    application_url = 'https://example.com/meridian/grant',
-    source_url = 'https://example.com/source/meridian',
-    quality_rating = 3,
-    verified = false,
-    status = 'active',
-    eligible_countries = array['BJ', 'CI', 'CV', 'GH', 'GM', 'GN', 'GW', 'LR', 'NG', 'SL', 'SN', 'TG']::text[],
+    eligible_countries = '{}'::text[],
     education_levels = array['postgraduate']::text[],
-    fields_of_study = array['Medicine', 'Public Health', 'Pharmacy', 'Nursing', 'Biomedical Engineering']::text[],
-    skills = array['Research']::text[],
+    fields_of_study = '{}'::text[],
+    skills = '{}'::text[],
     updated_at = now()
-where title = 'Health Innovation Research Grant'
-  and organization is not distinct from 'Meridian Health Trust (fictional)'
-  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Health Innovation Research Grant', 'Meridian Health Trust (fictional)', 'grant', 'ECOWAS region', 'Funding for applied research on primary healthcare delivery.', date '2027-02-28', 'Affiliated with a university or research institute in an ECOWAS country', 'https://example.com/meridian/grant', 'https://example.com/source/meridian', 3, false, 'active', array['BJ', 'CI', 'CV', 'GH', 'GM', 'GN', 'GW', 'LR', 'NG', 'SL', 'SN', 'TG']::text[], array['postgraduate']::text[], array['Medicine', 'Public Health', 'Pharmacy', 'Nursing', 'Biomedical Engineering']::text[], array['Research']::text[]);
+where title = 'Yenching Academy at Peking University 2027'
+  and organization is not distinct from 'Peking University'
+  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Yenching Academy at Peking University 2027', 'Peking University', 'scholarship', 'Nigeria (study in China)', 'Fully funded one-year interdisciplinary master''s program in China Studies at Peking University for international applicants with strong academic records.', date '2026-11-30', 'International applicants with a bachelor''s degree; open to all nationalities, including Nigeria.', 'https://yenchingacademy.pku.edu.cn/', 'https://yenchingacademy.pku.edu.cn/', 3, false, 'active', '{}'::text[], array['postgraduate']::text[], '{}'::text[], '{}'::text[]);
 
 insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
-select 'Health Innovation Research Grant',
-       'Meridian Health Trust (fictional)',
-       'grant',
-       'ECOWAS region',
-       'Funding for applied research on primary healthcare delivery.',
-       date '2027-02-28',
-       'Affiliated with a university or research institute in an ECOWAS country',
-       'https://example.com/meridian/grant',
-       'https://example.com/source/meridian',
+select 'Yenching Academy at Peking University 2027',
+       'Peking University',
+       'scholarship',
+       'Nigeria (study in China)',
+       'Fully funded one-year interdisciplinary master''s program in China Studies at Peking University for international applicants with strong academic records.',
+       date '2026-11-30',
+       'International applicants with a bachelor''s degree; open to all nationalities, including Nigeria.',
+       'https://yenchingacademy.pku.edu.cn/',
+       'https://yenchingacademy.pku.edu.cn/',
        3,
        false,
        'active',
-       array['BJ', 'CI', 'CV', 'GH', 'GM', 'GN', 'GW', 'LR', 'NG', 'SL', 'SN', 'TG']::text[],
+       '{}'::text[],
        array['postgraduate']::text[],
-       array['Medicine', 'Public Health', 'Pharmacy', 'Nursing', 'Biomedical Engineering']::text[],
-       array['Research']::text[]
+       '{}'::text[],
+       '{}'::text[]
 where not exists (
   select 1 from opportunities
-  where title = 'Health Innovation Research Grant'
-    and organization is not distinct from 'Meridian Health Trust (fictional)'
+  where title = 'Yenching Academy at Peking University 2027'
+    and organization is not distinct from 'Peking University'
 );
 
 update opportunities set
-    title = 'FinTech Build Weekend',
-    organization = 'Naija Devs Community (fictional)',
-    category = 'hackathon',
-    geography = 'Lagos',
-    description = '48-hour in-person hackathon on financial inclusion, with ₦2,000,000 in prizes.',
-    deadline = date '2026-10-03',
-    eligibility_notes = 'Teams of 2–5; open to students and professionals',
-    application_url = 'https://example.com/naijadevs/hackathon',
-    source_url = 'https://example.com/source/naijadevs',
-    quality_rating = 4,
+    title = 'One Young World Summit 2026 Scholarship',
+    organization = 'One Young World',
+    category = 'fellowship',
+    geography = 'Nigeria (summit in Cape Town, South Africa)',
+    description = 'Fully funded scholarship to attend the One Young World Summit in Cape Town — a global gathering of young leaders aged 18-35 from underrepresented countries working on social impact.',
+    deadline = date '2026-10-31',
+    eligibility_notes = 'Age 18-35, from underrepresented countries including Nigeria, with demonstrated leadership or impact work.',
+    application_url = 'https://www.oneyoungworld.com/scholarships',
+    source_url = 'https://www.oneyoungworld.com/scholarships',
+    quality_rating = 3,
     verified = false,
     status = 'active',
     eligible_countries = '{}'::text[],
     education_levels = '{}'::text[],
     fields_of_study = '{}'::text[],
-    skills = array['Python', 'JavaScript', 'Figma', 'Product Management']::text[],
+    skills = '{}'::text[],
     updated_at = now()
-where title = 'FinTech Build Weekend'
-  and organization is not distinct from 'Naija Devs Community (fictional)'
-  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('FinTech Build Weekend', 'Naija Devs Community (fictional)', 'hackathon', 'Lagos', '48-hour in-person hackathon on financial inclusion, with ₦2,000,000 in prizes.', date '2026-10-03', 'Teams of 2–5; open to students and professionals', 'https://example.com/naijadevs/hackathon', 'https://example.com/source/naijadevs', 4, false, 'active', '{}'::text[], '{}'::text[], '{}'::text[], array['Python', 'JavaScript', 'Figma', 'Product Management']::text[]);
+where title = 'One Young World Summit 2026 Scholarship'
+  and organization is not distinct from 'One Young World'
+  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('One Young World Summit 2026 Scholarship', 'One Young World', 'fellowship', 'Nigeria (summit in Cape Town, South Africa)', 'Fully funded scholarship to attend the One Young World Summit in Cape Town — a global gathering of young leaders aged 18-35 from underrepresented countries working on social impact.', date '2026-10-31', 'Age 18-35, from underrepresented countries including Nigeria, with demonstrated leadership or impact work.', 'https://www.oneyoungworld.com/scholarships', 'https://www.oneyoungworld.com/scholarships', 3, false, 'active', '{}'::text[], '{}'::text[], '{}'::text[], '{}'::text[]);
 
 insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
-select 'FinTech Build Weekend',
-       'Naija Devs Community (fictional)',
-       'hackathon',
-       'Lagos',
-       '48-hour in-person hackathon on financial inclusion, with ₦2,000,000 in prizes.',
-       date '2026-10-03',
-       'Teams of 2–5; open to students and professionals',
-       'https://example.com/naijadevs/hackathon',
-       'https://example.com/source/naijadevs',
-       4,
+select 'One Young World Summit 2026 Scholarship',
+       'One Young World',
+       'fellowship',
+       'Nigeria (summit in Cape Town, South Africa)',
+       'Fully funded scholarship to attend the One Young World Summit in Cape Town — a global gathering of young leaders aged 18-35 from underrepresented countries working on social impact.',
+       date '2026-10-31',
+       'Age 18-35, from underrepresented countries including Nigeria, with demonstrated leadership or impact work.',
+       'https://www.oneyoungworld.com/scholarships',
+       'https://www.oneyoungworld.com/scholarships',
+       3,
        false,
        'active',
        '{}'::text[],
        '{}'::text[],
        '{}'::text[],
-       array['Python', 'JavaScript', 'Figma', 'Product Management']::text[]
+       '{}'::text[]
 where not exists (
   select 1 from opportunities
-  where title = 'FinTech Build Weekend'
-    and organization is not distinct from 'Naija Devs Community (fictional)'
+  where title = 'One Young World Summit 2026 Scholarship'
+    and organization is not distinct from 'One Young World'
 );
 
 update opportunities set
-    title = 'Open Data Hack Abuja',
-    organization = 'Civic Data Lab (fictional)',
-    category = 'hackathon',
-    geography = 'Abuja',
-    description = 'Build tools on top of public government datasets.',
-    deadline = date '2026-09-05',
-    eligibility_notes = 'Open to all; beginners welcome',
-    application_url = 'https://example.com/civicdata/hack',
-    source_url = 'https://example.com/source/civicdata',
+    title = 'Global Entrepreneurship Festival — Entrepreneurs Investment Program (EIP) 2026',
+    organization = 'Global Entrepreneurship Festival',
+    category = 'grant',
+    geography = 'Nigeria (global program)',
+    description = 'Entrepreneurs Investment Program offering up to $35,000 in total seed investment for founders at any stage with an innovative business idea.',
+    deadline = date '2026-10-06',
+    eligibility_notes = 'Founders of any nationality and startup stage; full criteria on the official site.',
+    application_url = 'https://www.globalentrepreneurshipfestival.com/eip',
+    source_url = 'https://www.globalentrepreneurshipfestival.com/eip',
+    quality_rating = 3,
+    verified = false,
+    status = 'active',
+    eligible_countries = '{}'::text[],
+    education_levels = '{}'::text[],
+    fields_of_study = '{}'::text[],
+    skills = '{}'::text[],
+    updated_at = now()
+where title = 'Global Entrepreneurship Festival — Entrepreneurs Investment Program (EIP) 2026'
+  and organization is not distinct from 'Global Entrepreneurship Festival'
+  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Global Entrepreneurship Festival — Entrepreneurs Investment Program (EIP) 2026', 'Global Entrepreneurship Festival', 'grant', 'Nigeria (global program)', 'Entrepreneurs Investment Program offering up to $35,000 in total seed investment for founders at any stage with an innovative business idea.', date '2026-10-06', 'Founders of any nationality and startup stage; full criteria on the official site.', 'https://www.globalentrepreneurshipfestival.com/eip', 'https://www.globalentrepreneurshipfestival.com/eip', 3, false, 'active', '{}'::text[], '{}'::text[], '{}'::text[], '{}'::text[]);
+
+insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
+select 'Global Entrepreneurship Festival — Entrepreneurs Investment Program (EIP) 2026',
+       'Global Entrepreneurship Festival',
+       'grant',
+       'Nigeria (global program)',
+       'Entrepreneurs Investment Program offering up to $35,000 in total seed investment for founders at any stage with an innovative business idea.',
+       date '2026-10-06',
+       'Founders of any nationality and startup stage; full criteria on the official site.',
+       'https://www.globalentrepreneurshipfestival.com/eip',
+       'https://www.globalentrepreneurshipfestival.com/eip',
+       3,
+       false,
+       'active',
+       '{}'::text[],
+       '{}'::text[],
+       '{}'::text[],
+       '{}'::text[]
+where not exists (
+  select 1 from opportunities
+  where title = 'Global Entrepreneurship Festival — Entrepreneurs Investment Program (EIP) 2026'
+    and organization is not distinct from 'Global Entrepreneurship Festival'
+);
+
+update opportunities set
+    title = 'AGNES Intra-Africa Mobility Grants 2026',
+    organization = 'African Germany Network of Excellence in Science (AGNES)',
+    category = 'grant',
+    geography = 'Nigeria (pan-Sub-Saharan Africa)',
+    description = 'Research mobility grants (EUR 2,300-3,000) for junior/doctoral researchers in sub-Saharan Africa to build research networks and mentorship across the continent.',
+    deadline = date '2026-10-16',
+    eligibility_notes = 'Registered doctoral researchers based in sub-Saharan Africa.',
+    application_url = 'https://agnes-h.org/2026-agnes-intra-africa-mobility-grants-for-junior-researchers/',
+    source_url = 'https://agnes-h.org/2026-agnes-intra-africa-mobility-grants-for-junior-researchers/',
     quality_rating = 2,
     verified = false,
-    status = 'expired',
+    status = 'active',
     eligible_countries = '{}'::text[],
-    education_levels = '{}'::text[],
+    education_levels = array['postgraduate']::text[],
     fields_of_study = '{}'::text[],
-    skills = array['Data Analysis', 'Python']::text[],
+    skills = '{}'::text[],
     updated_at = now()
-where title = 'Open Data Hack Abuja'
-  and organization is not distinct from 'Civic Data Lab (fictional)'
-  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Open Data Hack Abuja', 'Civic Data Lab (fictional)', 'hackathon', 'Abuja', 'Build tools on top of public government datasets.', date '2026-09-05', 'Open to all; beginners welcome', 'https://example.com/civicdata/hack', 'https://example.com/source/civicdata', 2, false, 'expired', '{}'::text[], '{}'::text[], '{}'::text[], array['Data Analysis', 'Python']::text[]);
+where title = 'AGNES Intra-Africa Mobility Grants 2026'
+  and organization is not distinct from 'African Germany Network of Excellence in Science (AGNES)'
+  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('AGNES Intra-Africa Mobility Grants 2026', 'African Germany Network of Excellence in Science (AGNES)', 'grant', 'Nigeria (pan-Sub-Saharan Africa)', 'Research mobility grants (EUR 2,300-3,000) for junior/doctoral researchers in sub-Saharan Africa to build research networks and mentorship across the continent.', date '2026-10-16', 'Registered doctoral researchers based in sub-Saharan Africa.', 'https://agnes-h.org/2026-agnes-intra-africa-mobility-grants-for-junior-researchers/', 'https://agnes-h.org/2026-agnes-intra-africa-mobility-grants-for-junior-researchers/', 2, false, 'active', '{}'::text[], array['postgraduate']::text[], '{}'::text[], '{}'::text[]);
 
 insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
-select 'Open Data Hack Abuja',
-       'Civic Data Lab (fictional)',
-       'hackathon',
-       'Abuja',
-       'Build tools on top of public government datasets.',
-       date '2026-09-05',
-       'Open to all; beginners welcome',
-       'https://example.com/civicdata/hack',
-       'https://example.com/source/civicdata',
+select 'AGNES Intra-Africa Mobility Grants 2026',
+       'African Germany Network of Excellence in Science (AGNES)',
+       'grant',
+       'Nigeria (pan-Sub-Saharan Africa)',
+       'Research mobility grants (EUR 2,300-3,000) for junior/doctoral researchers in sub-Saharan Africa to build research networks and mentorship across the continent.',
+       date '2026-10-16',
+       'Registered doctoral researchers based in sub-Saharan Africa.',
+       'https://agnes-h.org/2026-agnes-intra-africa-mobility-grants-for-junior-researchers/',
+       'https://agnes-h.org/2026-agnes-intra-africa-mobility-grants-for-junior-researchers/',
        2,
        false,
-       'expired',
+       'active',
        '{}'::text[],
+       array['postgraduate']::text[],
        '{}'::text[],
-       '{}'::text[],
-       array['Data Analysis', 'Python']::text[]
+       '{}'::text[]
 where not exists (
   select 1 from opportunities
-  where title = 'Open Data Hack Abuja'
-    and organization is not distinct from 'Civic Data Lab (fictional)'
+  where title = 'AGNES Intra-Africa Mobility Grants 2026'
+    and organization is not distinct from 'African Germany Network of Excellence in Science (AGNES)'
 );
 
 update opportunities set
-    title = 'Pan-African Pitch Competition',
-    organization = 'Savanna Startup Network (fictional)',
+    title = 'D-Prize Global Competition 2026',
+    organization = 'D-Prize',
     category = 'competition',
-    geography = 'Global, open to Nigerians',
-    description = 'Startup pitch competition with a $25,000 top prize and investor introductions.',
-    deadline = date '2026-10-31',
-    eligibility_notes = 'Africa-focused startups with a working product',
-    application_url = 'https://example.com/savanna/pitch',
-    source_url = 'https://example.com/source/savanna',
-    quality_rating = 5,
+    geography = 'Nigeria (global, low/middle-income countries)',
+    description = 'Global competition awarding up to $20,000 to entrepreneurs launching new organizations that distribute proven poverty interventions in low- and middle-income countries.',
+    deadline = date '2026-12-06',
+    eligibility_notes = 'Open to anyone proposing to launch a new venture distributing a proven intervention in a low/middle-income country, including Nigeria.',
+    application_url = 'https://www.dprize.org/',
+    source_url = 'https://www.dprize.org/',
+    quality_rating = 3,
     verified = false,
     status = 'active',
     eligible_countries = '{}'::text[],
     education_levels = '{}'::text[],
     fields_of_study = '{}'::text[],
-    skills = array['Entrepreneurship', 'Public Speaking']::text[],
+    skills = '{}'::text[],
     updated_at = now()
-where title = 'Pan-African Pitch Competition'
-  and organization is not distinct from 'Savanna Startup Network (fictional)'
-  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Pan-African Pitch Competition', 'Savanna Startup Network (fictional)', 'competition', 'Global, open to Nigerians', 'Startup pitch competition with a $25,000 top prize and investor introductions.', date '2026-10-31', 'Africa-focused startups with a working product', 'https://example.com/savanna/pitch', 'https://example.com/source/savanna', 5, false, 'active', '{}'::text[], '{}'::text[], '{}'::text[], array['Entrepreneurship', 'Public Speaking']::text[]);
+where title = 'D-Prize Global Competition 2026'
+  and organization is not distinct from 'D-Prize'
+  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('D-Prize Global Competition 2026', 'D-Prize', 'competition', 'Nigeria (global, low/middle-income countries)', 'Global competition awarding up to $20,000 to entrepreneurs launching new organizations that distribute proven poverty interventions in low- and middle-income countries.', date '2026-12-06', 'Open to anyone proposing to launch a new venture distributing a proven intervention in a low/middle-income country, including Nigeria.', 'https://www.dprize.org/', 'https://www.dprize.org/', 3, false, 'active', '{}'::text[], '{}'::text[], '{}'::text[], '{}'::text[]);
 
 insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
-select 'Pan-African Pitch Competition',
-       'Savanna Startup Network (fictional)',
+select 'D-Prize Global Competition 2026',
+       'D-Prize',
        'competition',
-       'Global, open to Nigerians',
-       'Startup pitch competition with a $25,000 top prize and investor introductions.',
-       date '2026-10-31',
-       'Africa-focused startups with a working product',
-       'https://example.com/savanna/pitch',
-       'https://example.com/source/savanna',
-       5,
+       'Nigeria (global, low/middle-income countries)',
+       'Global competition awarding up to $20,000 to entrepreneurs launching new organizations that distribute proven poverty interventions in low- and middle-income countries.',
+       date '2026-12-06',
+       'Open to anyone proposing to launch a new venture distributing a proven intervention in a low/middle-income country, including Nigeria.',
+       'https://www.dprize.org/',
+       'https://www.dprize.org/',
+       3,
        false,
        'active',
        '{}'::text[],
        '{}'::text[],
        '{}'::text[],
-       array['Entrepreneurship', 'Public Speaking']::text[]
+       '{}'::text[]
 where not exists (
   select 1 from opportunities
-  where title = 'Pan-African Pitch Competition'
-    and organization is not distinct from 'Savanna Startup Network (fictional)'
+  where title = 'D-Prize Global Competition 2026'
+    and organization is not distinct from 'D-Prize'
 );
 
 update opportunities set
-    title = 'National Essay Competition',
-    organization = 'Unity Letters Society (fictional)',
+    title = 'Ashoka Carnegie Challenge for Civic Leadership 2027',
+    organization = 'Ashoka',
     category = 'competition',
     geography = 'Nigeria',
-    description = 'Essay competition on youth and nation-building for secondary and tertiary students.',
-    deadline = null::date,
-    eligibility_notes = 'Nigerian students aged 16–25',
-    application_url = 'https://example.com/unity/essay',
-    source_url = 'https://example.com/source/unity',
+    description = 'Challenge for young changemakers (age 20 and under) in Kenya, Nigeria, South Africa, and the USA leading civic initiatives in their schools and communities, offering seed grants and recognition.',
+    deadline = date '2027-01-31',
+    eligibility_notes = 'Age 20 and under; based in Kenya, Nigeria, South Africa, or USA.',
+    application_url = 'https://www.ashoka.org/',
+    source_url = 'https://www.ashoka.org/',
     quality_rating = 2,
     verified = false,
     status = 'active',
     eligible_countries = array['NG']::text[],
     education_levels = array['secondary', 'undergraduate']::text[],
     fields_of_study = '{}'::text[],
-    skills = array['Writing']::text[],
+    skills = '{}'::text[],
     updated_at = now()
-where title = 'National Essay Competition'
-  and organization is not distinct from 'Unity Letters Society (fictional)'
-  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('National Essay Competition', 'Unity Letters Society (fictional)', 'competition', 'Nigeria', 'Essay competition on youth and nation-building for secondary and tertiary students.', null::date, 'Nigerian students aged 16–25', 'https://example.com/unity/essay', 'https://example.com/source/unity', 2, false, 'active', array['NG']::text[], array['secondary', 'undergraduate']::text[], '{}'::text[], array['Writing']::text[]);
+where title = 'Ashoka Carnegie Challenge for Civic Leadership 2027'
+  and organization is not distinct from 'Ashoka'
+  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Ashoka Carnegie Challenge for Civic Leadership 2027', 'Ashoka', 'competition', 'Nigeria', 'Challenge for young changemakers (age 20 and under) in Kenya, Nigeria, South Africa, and the USA leading civic initiatives in their schools and communities, offering seed grants and recognition.', date '2027-01-31', 'Age 20 and under; based in Kenya, Nigeria, South Africa, or USA.', 'https://www.ashoka.org/', 'https://www.ashoka.org/', 2, false, 'active', array['NG']::text[], array['secondary', 'undergraduate']::text[], '{}'::text[], '{}'::text[]);
 
 insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
-select 'National Essay Competition',
-       'Unity Letters Society (fictional)',
+select 'Ashoka Carnegie Challenge for Civic Leadership 2027',
+       'Ashoka',
        'competition',
        'Nigeria',
-       'Essay competition on youth and nation-building for secondary and tertiary students.',
-       null::date,
-       'Nigerian students aged 16–25',
-       'https://example.com/unity/essay',
-       'https://example.com/source/unity',
+       'Challenge for young changemakers (age 20 and under) in Kenya, Nigeria, South Africa, and the USA leading civic initiatives in their schools and communities, offering seed grants and recognition.',
+       date '2027-01-31',
+       'Age 20 and under; based in Kenya, Nigeria, South Africa, or USA.',
+       'https://www.ashoka.org/',
+       'https://www.ashoka.org/',
        2,
        false,
        'active',
        array['NG']::text[],
        array['secondary', 'undergraduate']::text[],
        '{}'::text[],
-       array['Writing']::text[]
+       '{}'::text[]
 where not exists (
   select 1 from opportunities
-  where title = 'National Essay Competition'
-    and organization is not distinct from 'Unity Letters Society (fictional)'
+  where title = 'Ashoka Carnegie Challenge for Civic Leadership 2027'
+    and organization is not distinct from 'Ashoka'
 );
 
 update opportunities set
-    title = 'Campus Coding Challenge (withdrawn)',
-    organization = 'ByteForge (fictional)',
-    category = 'competition',
-    geography = 'Port Harcourt',
-    description = 'Inter-university coding challenge. Withdrawn by the organiser; kept to exercise the ''removed'' status.',
-    deadline = date '2026-10-20',
-    eligibility_notes = 'University students in Rivers State',
-    application_url = 'https://example.com/byteforge/challenge',
-    source_url = 'https://example.com/source/byteforge',
-    quality_rating = 1,
+    title = 'InnovateX 2026',
+    organization = 'Ecobank',
+    category = 'hackathon',
+    geography = 'Nigeria',
+    description = 'Ecobank''s flagship innovation challenge for young Nigerians aged 16-30, with two tracks (Inclusive Finance, Creative Economy) and a NGN 20 million total prize pool across a six-week competition.',
+    deadline = date '2026-10-30',
+    eligibility_notes = 'Nigerian citizens aged 16-30, preferably tertiary students, teams of exactly 4.',
+    application_url = 'https://www.innovatex.africa/',
+    source_url = 'https://www.innovatex.africa/',
+    quality_rating = 4,
     verified = false,
-    status = 'removed',
+    status = 'active',
     eligible_countries = array['NG']::text[],
-    education_levels = array['undergraduate']::text[],
-    fields_of_study = array['Computer Science']::text[],
-    skills = array['Python', 'Java']::text[],
+    education_levels = '{}'::text[],
+    fields_of_study = '{}'::text[],
+    skills = '{}'::text[],
     updated_at = now()
-where title = 'Campus Coding Challenge (withdrawn)'
-  and organization is not distinct from 'ByteForge (fictional)'
-  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Campus Coding Challenge (withdrawn)', 'ByteForge (fictional)', 'competition', 'Port Harcourt', 'Inter-university coding challenge. Withdrawn by the organiser; kept to exercise the ''removed'' status.', date '2026-10-20', 'University students in Rivers State', 'https://example.com/byteforge/challenge', 'https://example.com/source/byteforge', 1, false, 'removed', array['NG']::text[], array['undergraduate']::text[], array['Computer Science']::text[], array['Python', 'Java']::text[]);
+where title = 'InnovateX 2026'
+  and organization is not distinct from 'Ecobank'
+  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('InnovateX 2026', 'Ecobank', 'hackathon', 'Nigeria', 'Ecobank''s flagship innovation challenge for young Nigerians aged 16-30, with two tracks (Inclusive Finance, Creative Economy) and a NGN 20 million total prize pool across a six-week competition.', date '2026-10-30', 'Nigerian citizens aged 16-30, preferably tertiary students, teams of exactly 4.', 'https://www.innovatex.africa/', 'https://www.innovatex.africa/', 4, false, 'active', array['NG']::text[], '{}'::text[], '{}'::text[], '{}'::text[]);
 
 insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
-select 'Campus Coding Challenge (withdrawn)',
-       'ByteForge (fictional)',
-       'competition',
-       'Port Harcourt',
-       'Inter-university coding challenge. Withdrawn by the organiser; kept to exercise the ''removed'' status.',
-       date '2026-10-20',
-       'University students in Rivers State',
-       'https://example.com/byteforge/challenge',
-       'https://example.com/source/byteforge',
-       1,
+select 'InnovateX 2026',
+       'Ecobank',
+       'hackathon',
+       'Nigeria',
+       'Ecobank''s flagship innovation challenge for young Nigerians aged 16-30, with two tracks (Inclusive Finance, Creative Economy) and a NGN 20 million total prize pool across a six-week competition.',
+       date '2026-10-30',
+       'Nigerian citizens aged 16-30, preferably tertiary students, teams of exactly 4.',
+       'https://www.innovatex.africa/',
+       'https://www.innovatex.africa/',
+       4,
        false,
-       'removed',
+       'active',
        array['NG']::text[],
-       array['undergraduate']::text[],
-       array['Computer Science']::text[],
-       array['Python', 'Java']::text[]
+       '{}'::text[],
+       '{}'::text[],
+       '{}'::text[]
 where not exists (
   select 1 from opportunities
-  where title = 'Campus Coding Challenge (withdrawn)'
-    and organization is not distinct from 'ByteForge (fictional)'
+  where title = 'InnovateX 2026'
+    and organization is not distinct from 'Ecobank'
+);
+
+update opportunities set
+    title = 'GTCO Squad Hackathon 2026',
+    organization = 'Guaranty Trust Holding Company (GTCO) / HabariPay',
+    category = 'hackathon',
+    geography = 'Nigeria',
+    description = 'Fintech/AI hackathon themed "Smart Systems: The Intelligent Economy" for Nigerian university students, with up to NGN 10 million in prizes.',
+    deadline = null::date,
+    eligibility_notes = 'University students in Nigeria, teams of 2-4 with at least one technical member, valid student ID.',
+    application_url = 'https://squadco.com/hackathon/',
+    source_url = 'https://msmeafricaonline.com/call-for-applications-gtco-squad-hackathon-program-2026-for-nigerians-up-to-%E2%82%A610-million-in-prizes/',
+    quality_rating = 3,
+    verified = false,
+    status = 'active',
+    eligible_countries = array['NG']::text[],
+    education_levels = array['undergraduate']::text[],
+    fields_of_study = '{}'::text[],
+    skills = '{}'::text[],
+    updated_at = now()
+where title = 'GTCO Squad Hackathon 2026'
+  and organization is not distinct from 'Guaranty Trust Holding Company (GTCO) / HabariPay'
+  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('GTCO Squad Hackathon 2026', 'Guaranty Trust Holding Company (GTCO) / HabariPay', 'hackathon', 'Nigeria', 'Fintech/AI hackathon themed "Smart Systems: The Intelligent Economy" for Nigerian university students, with up to NGN 10 million in prizes.', null::date, 'University students in Nigeria, teams of 2-4 with at least one technical member, valid student ID.', 'https://squadco.com/hackathon/', 'https://msmeafricaonline.com/call-for-applications-gtco-squad-hackathon-program-2026-for-nigerians-up-to-%E2%82%A610-million-in-prizes/', 3, false, 'active', array['NG']::text[], array['undergraduate']::text[], '{}'::text[], '{}'::text[]);
+
+insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
+select 'GTCO Squad Hackathon 2026',
+       'Guaranty Trust Holding Company (GTCO) / HabariPay',
+       'hackathon',
+       'Nigeria',
+       'Fintech/AI hackathon themed "Smart Systems: The Intelligent Economy" for Nigerian university students, with up to NGN 10 million in prizes.',
+       null::date,
+       'University students in Nigeria, teams of 2-4 with at least one technical member, valid student ID.',
+       'https://squadco.com/hackathon/',
+       'https://msmeafricaonline.com/call-for-applications-gtco-squad-hackathon-program-2026-for-nigerians-up-to-%E2%82%A610-million-in-prizes/',
+       3,
+       false,
+       'active',
+       array['NG']::text[],
+       array['undergraduate']::text[],
+       '{}'::text[],
+       '{}'::text[]
+where not exists (
+  select 1 from opportunities
+  where title = 'GTCO Squad Hackathon 2026'
+    and organization is not distinct from 'Guaranty Trust Holding Company (GTCO) / HabariPay'
+);
+
+update opportunities set
+    title = 'DevFest Lagos 2026',
+    organization = 'Google Developer Groups (GDG) Lagos',
+    category = 'hackathon',
+    geography = 'Nigeria',
+    description = '14th edition of DevFest Lagos, a large GDG-run tech conference with 4+ tracks (AI/ML, cloud, web, mobile, design, cybersecurity).',
+    deadline = date '2026-11-13',
+    eligibility_notes = 'Open to all; paid tickets from NGN 8,000.',
+    application_url = 'https://devfestlagos.com/',
+    source_url = 'https://devfestlagos.com/',
+    quality_rating = 2,
+    verified = false,
+    status = 'active',
+    eligible_countries = array['NG']::text[],
+    education_levels = '{}'::text[],
+    fields_of_study = '{}'::text[],
+    skills = '{}'::text[],
+    updated_at = now()
+where title = 'DevFest Lagos 2026'
+  and organization is not distinct from 'Google Developer Groups (GDG) Lagos'
+  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('DevFest Lagos 2026', 'Google Developer Groups (GDG) Lagos', 'hackathon', 'Nigeria', '14th edition of DevFest Lagos, a large GDG-run tech conference with 4+ tracks (AI/ML, cloud, web, mobile, design, cybersecurity).', date '2026-11-13', 'Open to all; paid tickets from NGN 8,000.', 'https://devfestlagos.com/', 'https://devfestlagos.com/', 2, false, 'active', array['NG']::text[], '{}'::text[], '{}'::text[], '{}'::text[]);
+
+insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
+select 'DevFest Lagos 2026',
+       'Google Developer Groups (GDG) Lagos',
+       'hackathon',
+       'Nigeria',
+       '14th edition of DevFest Lagos, a large GDG-run tech conference with 4+ tracks (AI/ML, cloud, web, mobile, design, cybersecurity).',
+       date '2026-11-13',
+       'Open to all; paid tickets from NGN 8,000.',
+       'https://devfestlagos.com/',
+       'https://devfestlagos.com/',
+       2,
+       false,
+       'active',
+       array['NG']::text[],
+       '{}'::text[],
+       '{}'::text[],
+       '{}'::text[]
+where not exists (
+  select 1 from opportunities
+  where title = 'DevFest Lagos 2026'
+    and organization is not distinct from 'Google Developer Groups (GDG) Lagos'
+);
+
+update opportunities set
+    title = 'Flutterwave — Frontend Engineer (Lekki)',
+    organization = 'Flutterwave',
+    category = 'job',
+    geography = 'Nigeria (Lekki, Lagos)',
+    description = 'Frontend Engineer role at Flutterwave, a leading African fintech payments company.',
+    deadline = null::date,
+    eligibility_notes = null,
+    application_url = 'https://www.flutterwave.com/ng/careers',
+    source_url = 'https://ng.indeed.com/cmp/Flutterwave',
+    quality_rating = 3,
+    verified = false,
+    status = 'active',
+    eligible_countries = '{}'::text[],
+    education_levels = '{}'::text[],
+    fields_of_study = '{}'::text[],
+    skills = '{}'::text[],
+    updated_at = now()
+where title = 'Flutterwave — Frontend Engineer (Lekki)'
+  and organization is not distinct from 'Flutterwave'
+  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Flutterwave — Frontend Engineer (Lekki)', 'Flutterwave', 'job', 'Nigeria (Lekki, Lagos)', 'Frontend Engineer role at Flutterwave, a leading African fintech payments company.', null::date, null, 'https://www.flutterwave.com/ng/careers', 'https://ng.indeed.com/cmp/Flutterwave', 3, false, 'active', '{}'::text[], '{}'::text[], '{}'::text[], '{}'::text[]);
+
+insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
+select 'Flutterwave — Frontend Engineer (Lekki)',
+       'Flutterwave',
+       'job',
+       'Nigeria (Lekki, Lagos)',
+       'Frontend Engineer role at Flutterwave, a leading African fintech payments company.',
+       null::date,
+       null,
+       'https://www.flutterwave.com/ng/careers',
+       'https://ng.indeed.com/cmp/Flutterwave',
+       3,
+       false,
+       'active',
+       '{}'::text[],
+       '{}'::text[],
+       '{}'::text[],
+       '{}'::text[]
+where not exists (
+  select 1 from opportunities
+  where title = 'Flutterwave — Frontend Engineer (Lekki)'
+    and organization is not distinct from 'Flutterwave'
+);
+
+update opportunities set
+    title = 'Flutterwave — Product Manager (Lekki)',
+    organization = 'Flutterwave',
+    category = 'job',
+    geography = 'Nigeria (Lekki, Lagos)',
+    description = 'Product Manager role at Flutterwave, a leading African fintech payments company.',
+    deadline = null::date,
+    eligibility_notes = null,
+    application_url = 'https://www.flutterwave.com/ng/careers',
+    source_url = 'https://ng.indeed.com/cmp/Flutterwave',
+    quality_rating = 3,
+    verified = false,
+    status = 'active',
+    eligible_countries = '{}'::text[],
+    education_levels = '{}'::text[],
+    fields_of_study = '{}'::text[],
+    skills = '{}'::text[],
+    updated_at = now()
+where title = 'Flutterwave — Product Manager (Lekki)'
+  and organization is not distinct from 'Flutterwave'
+  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Flutterwave — Product Manager (Lekki)', 'Flutterwave', 'job', 'Nigeria (Lekki, Lagos)', 'Product Manager role at Flutterwave, a leading African fintech payments company.', null::date, null, 'https://www.flutterwave.com/ng/careers', 'https://ng.indeed.com/cmp/Flutterwave', 3, false, 'active', '{}'::text[], '{}'::text[], '{}'::text[], '{}'::text[]);
+
+insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
+select 'Flutterwave — Product Manager (Lekki)',
+       'Flutterwave',
+       'job',
+       'Nigeria (Lekki, Lagos)',
+       'Product Manager role at Flutterwave, a leading African fintech payments company.',
+       null::date,
+       null,
+       'https://www.flutterwave.com/ng/careers',
+       'https://ng.indeed.com/cmp/Flutterwave',
+       3,
+       false,
+       'active',
+       '{}'::text[],
+       '{}'::text[],
+       '{}'::text[],
+       '{}'::text[]
+where not exists (
+  select 1 from opportunities
+  where title = 'Flutterwave — Product Manager (Lekki)'
+    and organization is not distinct from 'Flutterwave'
+);
+
+update opportunities set
+    title = 'Paystack — Senior Brand Designer (Lagos)',
+    organization = 'Paystack',
+    category = 'job',
+    geography = 'Nigeria (Lagos)',
+    description = 'Senior Brand Designer role at Paystack, a leading Nigerian fintech payments company.',
+    deadline = null::date,
+    eligibility_notes = null,
+    application_url = 'https://paystack.com/careers',
+    source_url = 'https://ng.indeed.com/cmp/Paystack',
+    quality_rating = 3,
+    verified = false,
+    status = 'active',
+    eligible_countries = '{}'::text[],
+    education_levels = '{}'::text[],
+    fields_of_study = '{}'::text[],
+    skills = '{}'::text[],
+    updated_at = now()
+where title = 'Paystack — Senior Brand Designer (Lagos)'
+  and organization is not distinct from 'Paystack'
+  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Paystack — Senior Brand Designer (Lagos)', 'Paystack', 'job', 'Nigeria (Lagos)', 'Senior Brand Designer role at Paystack, a leading Nigerian fintech payments company.', null::date, null, 'https://paystack.com/careers', 'https://ng.indeed.com/cmp/Paystack', 3, false, 'active', '{}'::text[], '{}'::text[], '{}'::text[], '{}'::text[]);
+
+insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
+select 'Paystack — Senior Brand Designer (Lagos)',
+       'Paystack',
+       'job',
+       'Nigeria (Lagos)',
+       'Senior Brand Designer role at Paystack, a leading Nigerian fintech payments company.',
+       null::date,
+       null,
+       'https://paystack.com/careers',
+       'https://ng.indeed.com/cmp/Paystack',
+       3,
+       false,
+       'active',
+       '{}'::text[],
+       '{}'::text[],
+       '{}'::text[],
+       '{}'::text[]
+where not exists (
+  select 1 from opportunities
+  where title = 'Paystack — Senior Brand Designer (Lagos)'
+    and organization is not distinct from 'Paystack'
+);
+
+update opportunities set
+    title = 'Paystack — Senior Backend Engineer (Abuja)',
+    organization = 'Paystack',
+    category = 'job',
+    geography = 'Nigeria (Abuja)',
+    description = 'Senior Backend Engineer role at Paystack, a leading Nigerian fintech payments company.',
+    deadline = null::date,
+    eligibility_notes = null,
+    application_url = 'https://paystack.com/careers',
+    source_url = 'https://ng.indeed.com/cmp/Paystack',
+    quality_rating = 3,
+    verified = false,
+    status = 'active',
+    eligible_countries = '{}'::text[],
+    education_levels = '{}'::text[],
+    fields_of_study = '{}'::text[],
+    skills = '{}'::text[],
+    updated_at = now()
+where title = 'Paystack — Senior Backend Engineer (Abuja)'
+  and organization is not distinct from 'Paystack'
+  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('Paystack — Senior Backend Engineer (Abuja)', 'Paystack', 'job', 'Nigeria (Abuja)', 'Senior Backend Engineer role at Paystack, a leading Nigerian fintech payments company.', null::date, null, 'https://paystack.com/careers', 'https://ng.indeed.com/cmp/Paystack', 3, false, 'active', '{}'::text[], '{}'::text[], '{}'::text[], '{}'::text[]);
+
+insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
+select 'Paystack — Senior Backend Engineer (Abuja)',
+       'Paystack',
+       'job',
+       'Nigeria (Abuja)',
+       'Senior Backend Engineer role at Paystack, a leading Nigerian fintech payments company.',
+       null::date,
+       null,
+       'https://paystack.com/careers',
+       'https://ng.indeed.com/cmp/Paystack',
+       3,
+       false,
+       'active',
+       '{}'::text[],
+       '{}'::text[],
+       '{}'::text[],
+       '{}'::text[]
+where not exists (
+  select 1 from opportunities
+  where title = 'Paystack — Senior Backend Engineer (Abuja)'
+    and organization is not distinct from 'Paystack'
+);
+
+update opportunities set
+    title = 'ActionAid International — Conflict Sensitivity Advisor (Nigeria)',
+    organization = 'ActionAid International',
+    category = 'job',
+    geography = 'Nigeria',
+    description = 'Conflict Sensitivity Advisor role with ActionAid International''s Nigeria programme.',
+    deadline = date '2026-10-04',
+    eligibility_notes = null,
+    application_url = 'https://opportunitydesk.org/2026/10/01/30-hot-jobs-across-africa-currently-open-october-2-2026/',
+    source_url = 'https://opportunitydesk.org/2026/10/01/30-hot-jobs-across-africa-currently-open-october-2-2026/',
+    quality_rating = 1,
+    verified = false,
+    status = 'active',
+    eligible_countries = array['NG']::text[],
+    education_levels = '{}'::text[],
+    fields_of_study = '{}'::text[],
+    skills = '{}'::text[],
+    updated_at = now()
+where title = 'ActionAid International — Conflict Sensitivity Advisor (Nigeria)'
+  and organization is not distinct from 'ActionAid International'
+  and (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills) is distinct from ('ActionAid International — Conflict Sensitivity Advisor (Nigeria)', 'ActionAid International', 'job', 'Nigeria', 'Conflict Sensitivity Advisor role with ActionAid International''s Nigeria programme.', date '2026-10-04', null, 'https://opportunitydesk.org/2026/10/01/30-hot-jobs-across-africa-currently-open-october-2-2026/', 'https://opportunitydesk.org/2026/10/01/30-hot-jobs-across-africa-currently-open-october-2-2026/', 1, false, 'active', array['NG']::text[], '{}'::text[], '{}'::text[], '{}'::text[]);
+
+insert into opportunities (title, organization, category, geography, description, deadline, eligibility_notes, application_url, source_url, quality_rating, verified, status, eligible_countries, education_levels, fields_of_study, skills)
+select 'ActionAid International — Conflict Sensitivity Advisor (Nigeria)',
+       'ActionAid International',
+       'job',
+       'Nigeria',
+       'Conflict Sensitivity Advisor role with ActionAid International''s Nigeria programme.',
+       date '2026-10-04',
+       null,
+       'https://opportunitydesk.org/2026/10/01/30-hot-jobs-across-africa-currently-open-october-2-2026/',
+       'https://opportunitydesk.org/2026/10/01/30-hot-jobs-across-africa-currently-open-october-2-2026/',
+       1,
+       false,
+       'active',
+       array['NG']::text[],
+       '{}'::text[],
+       '{}'::text[],
+       '{}'::text[]
+where not exists (
+  select 1 from opportunities
+  where title = 'ActionAid International — Conflict Sensitivity Advisor (Nigeria)'
+    and organization is not distinct from 'ActionAid International'
 );

@@ -10,8 +10,9 @@ Run from the backend/ directory:
 
 Both are safe to re-run: a row whose title and organization are already in the table is
 updated to match the sheet (and left alone if nothing changed). Inserting refuses a
-non-local DATABASE_URL unless --allow-nonlocal is passed, because the sheet currently holds
-fictional dev data.
+non-local DATABASE_URL unless --allow-nonlocal is passed, because most rows in the sheet
+are marked Verified=No — real opportunities TJ hasn't confirmed yet, not fictional ones —
+and shouldn't reach a real database until he has.
 """
 
 import argparse
@@ -243,8 +244,9 @@ def to_sql(rows: list[dict]) -> str:
         f"-- GENERATED from docs/{DEFAULT_SHEET.name} by backend/scripts/seed_opportunities.py.\n"
         "-- Don't edit by hand: edit the sheet, then run `python -m scripts.seed_opportunities --sql`.\n"
         "--\n"
-        "-- DEV/TEST DATA: includes fictional opportunities (see the sheet's Notes column).\n"
-        "-- Never run this against production.\n"
+        "-- UNVERIFIED DATA: every row is a real opportunity, but most are still marked\n"
+        "-- Verified=No in the sheet (see its Notes column) pending a human confirmation pass.\n"
+        "-- Never run this against production until that's done.\n"
         "--\n"
         "-- Needs the migrated schema: run after `alembic upgrade head`.\n"
         "-- Safe to re-run: rows already present (same title and organization) are updated to\n"
@@ -318,8 +320,8 @@ def main() -> None:
     host = urlsplit(get_settings().database_url).hostname
     if host not in LOCAL_HOSTS and not args.allow_nonlocal:
         sys.exit(
-            f"Refusing to seed non-local database host {host!r}: the sheet holds fictional "
-            "dev data. Pass --allow-nonlocal if you really mean it."
+            f"Refusing to seed non-local database host {host!r}: most rows in the sheet are "
+            "still unverified (Verified=No). Pass --allow-nonlocal if you really mean it."
         )
     added, updated = asyncio.run(_insert(rows))
     print(f"Inserted {added} and updated {updated} of {len(rows)} opportunities")
